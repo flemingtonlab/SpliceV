@@ -30,7 +30,7 @@ wget ftp://ftp.ensembl.org/pub/release-92/gtf/homo_sapiens/Homo_sapiens.GRCh38.9
 
 gunzip Homo_sapiens.GRCh38.92.gtf.gz 
 
-python ../build_db.py --gtf Homo_sapiens.GRCh38.92.gtf --wigneg chr19a_negative_strand.wig --wigpos chr19_positive_strand --splicejunction chr19_canonical_junctions.bed --circlejunction chr19_backsplice_junctions.bed --output example
+python ../build_db.py --gtf Homo_sapiens.GRCh38.92.gtf --wigneg chr19a_negative_strand.wig --wigpos chr19a_positive_strand --splicejunction chr19_canonical_junctions.bed --circlejunction chr19_backsplice_junctions.bed --output example
 
 python ../plot_transcript.py -db example.db -g PIP5K1C
 ```
