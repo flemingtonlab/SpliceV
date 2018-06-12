@@ -8,7 +8,7 @@ from numpy import arange, linspace
 import matplotlib.pyplot as plt
 import argparse
 from collections import defaultdict
-
+import webbrowser
 
 def parse_args():
    
@@ -407,5 +407,5 @@ for i in range(len(samples)):
 plt.subplots_adjust(hspace=0.4, top=0.8, bottom=0.2)
 plt.suptitle(transcript, fontsize=16, fontweight ='bold')
 plt.savefig("%s.svg" % transcript)
-
+webbrowser.open("%s.svg" % transcript)
 
