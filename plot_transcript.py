@@ -8,6 +8,7 @@ from numpy import arange, linspace
 import matplotlib.pyplot as plt
 import argparse
 from collections import defaultdict
+import webbrowser
 
 def parse_args():
    
@@ -384,7 +385,6 @@ if args.normalize:
             highest = max_coverage
 
 for index in range(len(samples)):
-    print(args.color)
     coverage = samples[index][3]
     if args.normalize:
         max_coverage = highest
@@ -407,3 +407,15 @@ plt.subplots_adjust(hspace=0.4, top=0.8, bottom=0.2)
 plt.suptitle(transcript, fontsize=16, fontweight ='bold')
 plt.savefig("%s.svg" % transcript)
 
+html_str = '''
+<html>
+<body>
+<img src="%s.svg" alt="%s">
+</body>
+</html>
+'''
+with open("%s.html" % transcript,"w") as html:
+    html.write(html_str % (transcript, transcript))
+
+
+webbrowser.open('file://'+os.path.realpath("%s.html" % transcript))
