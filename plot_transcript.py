@@ -17,12 +17,12 @@ def parse_args():
     parser.add_argument("-db", "--database", nargs='*', required=True, type=str, help="Path to each sample database file (created using build_db", metavar='')
     parser.add_argument("-c", "--color", default="#C21807", type=str, help='Exon color. Hex colors (i.e. "\#4286f4". For hex, an escape "\" must precede the argument) or names (i.e. "red")', metavar='')
     parser.add_argument("-t", "--transcript",  type=str, help='Name of transcript to plot', metavar='')
-    parser.add_argument("-g", "--gene", nargs=1, type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene', metavar='')
+    parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene', metavar='')
     #parser.add_argument("-f", "--filter", action='store_true', help='Filter out non-exonic junctions', metavar='')
     parser.add_argument("-n", "--normalize", action='store_true', help='Normalize coverage between samples')
     parser.add_argument("-rc", "--reduce_canonical", type=int, help='Factor by which to reduce canonical curves', metavar='')
     parser.add_argument("-rbs", "--reduce_backsplice", type=int, help='Factor by which to reduce backsplice curves', metavar='')
-
+    parser.add_argument("-ro", "--repress_open", action='store_true', help='Do not open plot in browser (only save it)')
     args = parser.parse_args()
 
     for path in args.database: 
@@ -33,7 +33,7 @@ def parse_args():
         sys.exit('Either a gene or a transcript must be specified. (ex. "-t ENST00000390665" or "-g EGFR")')
 
     elif not args.transcript:
-        args.transcript = get_transcript_from_gene(db_path=args.database[0], gene=args.gene[0])
+        args.transcript = get_transcript_from_gene(db_path=args.database[0], gene=args.gene)
 
     args.color = to_rgb(args.color)
 
@@ -404,8 +404,12 @@ for i in range(len(samples)):
     add_ax(num_plots, i + 1, i)
 
 plt.subplots_adjust(hspace=0.4, top=0.8, bottom=0.2)
-plt.suptitle(transcript, fontsize=16, fontweight ='bold')
-plt.savefig("%s.svg" % transcript)
+if args.gene:
+    title = "%s (%s)" % (args.gene, transcript)
+else:
+    title = transcript
+plt.suptitle(title, fontsize=16, fontweight ='bold')
+plt.savefig("%s.svg" % title)
 
 html_str = '''
 <html>
@@ -414,8 +418,9 @@ html_str = '''
 </body>
 </html>
 '''
-with open("%s.html" % transcript,"w") as html:
-    html.write(html_str % (transcript, transcript))
 
+with open("%s.html" % title,"w") as html:
+    html.write(html_str % (title, title))
 
-webbrowser.open('file://'+os.path.realpath("%s.html" % transcript))
+if not args.repress_open:
+    webbrowser.open('file://'+os.path.realpath("%s.html" % title))
