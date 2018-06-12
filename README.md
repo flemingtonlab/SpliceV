@@ -26,7 +26,9 @@ git clone https://github.com/flemingtonlab/circleVis.git
 
 cd circleVis/example 
 
-wget ftp://ftp.ensembl.org/pub/release-92/gtf/homo_sapiens . 
+wget ftp://ftp.ensembl.org/pub/release-92/gtf/homo_sapiens/Homo_sapiens.GRCh38.92.gtf.gz .
+
+gunzip Homo_sapiens.GRCh38.92.gtf.gz 
 
 python build_db.py --gtf Homo_sapiens.GRCh38.92.gtf --wigneg chr19a_negative_strand.wig --wigpos chr19_positive_strand --splicejunction chr19_canonical_junctions.bed --circlejunction chr19_backsplice_junctions.bed --output example
 
