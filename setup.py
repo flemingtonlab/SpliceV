@@ -1,9 +1,9 @@
 from distutils.core import setup
 
 setup(
-    name='circVis',
+    name='circleVis',
     version='0.1dev',
-    packages=['circvis',],
+    packages=['circlevis',],
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
 )
