@@ -11,8 +11,8 @@ To install circleVis:
 ## Example ##
 To run the example dataset:
 >mkdir test_run
->cd test_run
->wget ftp://ftp.ensembl.org/pub/release-92/gtf/homo_sapiens .
+cd test_run
+wget ftp://ftp.ensembl.org/pub/release-92/gtf/homo_sapiens .
 
 
 
