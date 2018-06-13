@@ -83,7 +83,8 @@ def store(gtf_path, max_coord, interval):
 
 
 def build_coverage_dict(master, wigpath, strand=False):
-
+    
+    not_found = []
     print("Storing coverage data from %s" % wigpath)
     line_num = 0
     with open(wigpath, "r") as wigfile:
@@ -114,7 +115,10 @@ def build_coverage_dict(master, wigpath, strand=False):
                                 master[chromosome][primary][key][3].append(coverage) 
 
                 except KeyError:                      
-                    print("Make sure chromosome labels are consistent between all input files. Coverage information for chromosome: %s, will not be considered" % chromosome)
+                    not_found.append(chromosome)
+    if not_found:
+        for i in set(not_found):
+            print("%s was not found in your gtf file. Please make sure all files use the same annotation. Coverage for %s will not be included" %(i, i))
 
 
 def build_sample_db(parsed_args):
