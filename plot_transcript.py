@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from __future__ import print_function
 import sys
 import os
 import sqlite3
@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import argparse
 from collections import defaultdict
 import webbrowser
+import re
+
 
 def parse_args():
    
@@ -329,6 +331,7 @@ def add_ax(num_plots, n, sample_ind):
     plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom)
     plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
     plot_circles(ax=ax, coordinates=backsplice, y=ybottom, gene_size=gene_length)
+    name = re.sub(r'[-_|]',' ', name)
     ax.set_title(name)
 
 if sys.version_info[0] < 3:
@@ -410,6 +413,7 @@ if args.gene:
     title = "%s (%s)" % (args.gene, transcript)
 else:
     title = transcript
+
 plt.suptitle(title, fontsize=16, fontweight ='bold')
 plt.savefig("%s.svg" % title)
 
