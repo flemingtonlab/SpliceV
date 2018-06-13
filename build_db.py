@@ -90,7 +90,7 @@ def build_coverage_dict(master, wigpath, strand=False):
         for line in wigfile:
             line_num += 1
             if line_num % 10000000 == 0:
-                print("%i lines processed")
+                print("%i lines processed" % line_num)
 
             # Wig file lines beginning with "variable step=chrN" mark beginning of that chromosome 
             if line[0] == 'v':
