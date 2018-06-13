@@ -155,7 +155,8 @@ def build_junction_table(bed_path, table_name):
 
     with open(bed_path, "r") as input_file:
         for line in input_file:
-            chromosome, start, stop, strand, counts, *_= line.strip().split()
+            line = line.strip().split()
+            chromosome, start, stop, strand, counts = line[:5]
             start = int(start) + 1  # Bed format is 0 indexed
             stop = int(stop) + 1
             c.execute("INSERT INTO %s VALUES(?,?,?,?,?)" % table_name, (chromosome, start, stop, strand, counts))
