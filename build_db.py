@@ -114,8 +114,7 @@ def build_coverage_dict(master, wigpath, strand=False):
                                 master[chromosome][primary][key][3].append(coverage) 
 
                 except KeyError:                      
-                    print("Make sure chromosome labels are consistent between all input files. Coverage information for chromosome: %s",
-                            "will not be considered")
+                    print("Make sure chromosome labels are consistent between all input files. Coverage information for chromosome: %s, will not be considered" % chromosome)
 
 
 def build_sample_db(parsed_args):
