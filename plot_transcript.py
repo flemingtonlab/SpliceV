@@ -180,15 +180,15 @@ def plot_SJ_curves(ax, coordinates, y):
             arc_len = stop - start  
 
             # Depending on arc length, apply a radian correction (prevent arc exceeding y axis limits)
-            if arc_len > (xlen / 8):
-                radian_corr = (2 *arc_len/xlen)
-            if arc_len > (xlen / 4):
-                radian_corr = (1.5*arc_len/xlen)
-            if arc_len > (xlen / 2):
-                radian_corr = (arc_len/xlen)
             if arc_len > (xlen / 1.2):
                 radian_corr = (0.4*arc_len/xlen)
-
+            elif arc_len > (xlen / 2):
+                radian_corr = (0.6*arc_len/xlen)                
+            elif arc_len > (0.8*xlen / 4):
+                radian_corr = (.6* arc_len/xlen)            
+            elif arc_len > (xlen / 8):
+                radian_corr = (arc_len/xlen)
+            
             # Plots each junction, increasing radians by amount defined by counts. (More counts = smaller difference in radians per curve plotted)
             step = 1 / (counts * step_denominator)
             for radians in arange(radian_low, radian_high, step):
