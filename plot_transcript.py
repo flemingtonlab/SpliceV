@@ -331,6 +331,8 @@ def add_ax(num_plots, n, sample_ind):
     plot_circles(ax=ax, coordinates=backsplice, y=ybottom, gene_size=gene_length)
     ax.set_title(name)
 
+if sys.version_info[0] < 3:
+        raise Exception("Must be using Python 3")
 
 args = parse_args()
 transcript = args.transcript

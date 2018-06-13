@@ -163,6 +163,8 @@ def build_junction_table(bed_path, table_name):
     conn.commit()
     conn.close()
 
+if sys.version_info[0] < 3:
+        raise Exception("Must be using Python 3")
 
 args = parse_args()
 gtf_path = args.gtf_path
