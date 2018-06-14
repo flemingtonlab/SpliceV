@@ -1,5 +1,6 @@
 # circleVis #
 Visualize coverage, canonical, and backsplice junctions.
+**cython version**
 ## Requirements ##
 circleVis works with Python 3.0 and newer.
 ## Dependencies ##
