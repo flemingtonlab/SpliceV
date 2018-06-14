@@ -102,7 +102,12 @@ def get_coverage(db_path, transcript):
 
     query = (transcript, )
   
-    fetched = c.execute('SELECT coverage FROM coverage WHERE transcript=?', query).fetchall()
+    fetched = c.execute('SELECT coverage, start FROM coverage WHERE transcript=?', query).fetchall()
+    if strand == '+':
+        fetched.sort(key=lambda x:x[1], reverse=True)
+    else:
+        fetched.sort(key=lambda x:x[1])
+    print(fetched)
     return [i[0] for i in fetched]
 
 
@@ -355,15 +360,15 @@ samples = []
 for db_path in args.database:
 
     name = db_path
-    name = db_path.split('.')[0].upper()
+    name = os.path.basename(db_path).split('.')[0].upper()
     canonical = get_sj(db_path=db_path, table_name="canonical", chromosome=chromosome,
                             start=transcript_start, stop=transcript_stop, strand=strand)
     backsplice = get_sj(db_path=db_path, table_name="circle", chromosome=chromosome, 
                             start=transcript_start, stop=transcript_stop, strand=strand)
     coverage = get_coverage(db_path=db_path, transcript=transcript)
 
-    if strand == '-':
-       coverage.reverse()
+    #if strand == '-':
+     #  coverage.reverse()
 
     if args.intron_scale:
         canonical = scale_coords(coords, scaled_coords, canonical)
