@@ -9,7 +9,7 @@ circleVis works with Python 3.0 and newer.
 To install circleVis:
 
 ```
-NOT IMPLEMENTED YET: pip install circleVis
+pip install circleVis
 ```
 
 Or:
