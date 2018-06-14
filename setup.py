@@ -1,9 +1,20 @@
-from distutils.core import setup
+import setuptools
 
-setup(
+setuptools.setup(
     name='circleVis',
-    version='0.1dev',
-    packages=['circlevis',],
-    license='Creative Commons Attribution-Noncommercial-Share Alike license',
+    version='0.1.dev0',
+    author='Nathan Ungerleider',
+    author_email='nungerle@tulane.edu',
+    description='Visualize splice junctions, backsplice junctions (circleRNA) and coverage from RNA-Seq datasets',
+    url='https://github.com/flemingtonlab/circleVis',
+    packages=setuptools.find_packages(),
     long_description=open('README.md').read(),
+    classifiers=('Programming Language :: Python :: 3',
+                 'License :: OSI Approved :: GNU General Public License v3.0',
+                 'Operating System :: OS Independent',
+                ),
+    install_requires = ['matplotlib', 'numpy'],
+    python_requires='>=3',
+    scripts=['bin/circplot', 'bin/circbuild'],
 )
+
