@@ -17,7 +17,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Plot transcript')
     parser.add_argument("-is", "--intron-scale", type=float, help="The factor by which intron white space should be reduced", metavar='')
     parser.add_argument("-db", "--database", nargs='*', required=True, type=str, help="Path to each sample database file (created using build_db", metavar='')
-    parser.add_argument("-c", "--color", default="#C21807", type=str, help='Exon color. Hex colors (i.e. "\#4286f4". For hex, an escape "\" must precede the argument) or names (i.e. "red")', metavar='')
+    parser.add_argument("-c", "--color", default="#C21807", type=str, help="Exon color. Hex colors (i.e. \"\#4286f4\". For hex, an escape \"\\\" must precede the argument) or names (i.e. \"red\")", metavar='')
     parser.add_argument("-t", "--transcript",  type=str, help='Name of transcript to plot', metavar='')
     parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene', metavar='')
     #parser.add_argument("-f", "--filter", action='store_true', help='Filter out non-exonic junctions', metavar='')
