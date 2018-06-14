@@ -22,8 +22,8 @@ def parse_args():
     parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene', metavar='')
     #parser.add_argument("-f", "--filter", action='store_true', help='Filter out non-exonic junctions', metavar='')
     parser.add_argument("-n", "--normalize", action='store_true', help='Normalize coverage between samples')
-    parser.add_argument("-rc", "--reduce_canonical", type=int, help='Factor by which to reduce canonical curves', metavar='')
-    parser.add_argument("-rbs", "--reduce_backsplice", type=int, help='Factor by which to reduce backsplice curves', metavar='')
+    parser.add_argument("-rc", "--reduce_canonical", type=float, help='Factor by which to reduce canonical curves', metavar='')
+    parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves', metavar='')
     parser.add_argument("-ro", "--repress_open", action='store_true', help='Do not open plot in browser (only save it)')
     args = parser.parse_args()
 
@@ -71,7 +71,7 @@ def get_transcript_from_gene(db_path, gene):
 
 
 def get_exons(db_path, transcript):   
-    # Takes transcript ID and returns exon coordinates - chromosome, [starts], [stops], strand
+    '''Takes transcript ID and returns exon coordinates - chromosome, [starts], [stops], strand'''
    
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
@@ -95,14 +95,19 @@ def get_exons(db_path, transcript):
 
 
 def get_coverage(db_path, transcript):
-    # Takes transcript and returns coverage from db file for each exon
+    '''Takes transcript and returns coverage from db file for each exon'''
 
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     query = (transcript, )
   
-    fetched = c.execute('SELECT coverage FROM coverage WHERE transcript=?', query).fetchall()
+    fetched = c.execute('SELECT coverage, start FROM coverage WHERE transcript=?', query).fetchall()
+    if strand == '+':
+        fetched.sort(key=lambda x:x[1], reverse=True)
+    else:
+        fetched.sort(key=lambda x:x[1])
+
     return [i[0] for i in fetched]
 
 
@@ -142,13 +147,12 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size):
              ]
 
     path = Path(verts, codes)
-
-    patch = patches.PathPatch(path, facecolor='none', lw=1, alpha=.1, ec='0')  ##Circle junction 'lw' = line width, alpha = transparency
+    patch = patches.PathPatch(path, facecolor='none', lw=1, alpha=.1, ec='0') 
     ax.add_patch(patch)
 
 
 def plot_exons(ax, coordinates, y, height, colors):
-    # Takes coordinates and coverage and plots exons.
+    '''Takes coordinates and coverage and plots exons in color with (lack of) alpha value representing relative coverage of an exon.'''
 
     for (start, stop), color in zip(coordinates, colors):
         length = stop - start
@@ -157,7 +161,7 @@ def plot_exons(ax, coordinates, y, height, colors):
 
 
 def plot_SJ_curves(ax, coordinates, y):
-    # Takes coordinates and plots canonical junctions above exons
+    '''Takes coordinates and plots canonical junctions (above exons)'''
 
     # Curve line properties
     linewidth = 1 
@@ -197,7 +201,7 @@ def plot_SJ_curves(ax, coordinates, y):
 
 
 def plot_circles(ax, coordinates, y, gene_size):
-    # Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()
+    '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
 
     for start, stop, counts in coordinates:
         if counts != 0:
@@ -207,10 +211,10 @@ def plot_circles(ax, coordinates, y, gene_size):
 
 
 def scale_introns(coords, scaling_factor):
-    # Reduces intron size, returns new exon coordinates
+    '''Reduces intron size, returns new exon coordinates'''
 
-    if scaling_factor == 0:
-        print("Intron scaling factor of 0 not allowed. Plotting without scaling.")
+    if scaling_factor <= 0:
+        print("Intron scaling factor must be > 0. Plotting without scaling.")
         return coords
 
     newcoords = []
@@ -229,10 +233,8 @@ def scale_introns(coords, scaling_factor):
 
 
 def transform(original, scaled, query):
-    
     ''' Transform query to new scale. 
         Adapted from https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio'''
-
 
     orig_c = [i for j in original for i in j]
     scal_c = [i for j in scaled for i in j]
@@ -258,7 +260,7 @@ def transform(original, scaled, query):
 
 
 def scale_coords(oldranges, newranges, coords):
-    # Scale junction coordinates to new exon coordinates using scale()
+    '''Scale junction coordinates to new exon coordinates using scale()'''
 
     newcoords = []
     for start, stop, counts in coords:
@@ -270,7 +272,7 @@ def scale_coords(oldranges, newranges, coords):
 
 
 def to_rgb(color):
-    # Converts hex or color name to rgb. Coverage is set up to be represented by 'alpha' of rgba
+    '''Converts hex or color name to rgb. Coverage is set up to be represented by 'alpha' of rgba'''
 
     colordict = {
         'red': '#FF0000',
@@ -306,36 +308,49 @@ def to_rgb(color):
 
 
 def add_ax(num_plots, n, sample_ind):
-    # Add new plot
+    '''Add new plot'''
 
     name, canonical, backsplice, _, colors = samples[sample_ind]
 
     # Center the plot on the canvas
     ax = plt.subplot(num_plots, 1, n)
-    ybottom = 0.5
-    height = 0.5
+    ybottom = height = 0.5
     ytop = ybottom + height
+
+    # Calculated again here in case user requests intron scaling.
     transcript_start = min([i[0] for i in coords]) 
     transcript_stop = max([i[1] for i in coords])  
     gene_length = transcript_stop - transcript_start
+    
+    # Add room on left and right of plot.
     x_adjustment = 0.05 * gene_length
-    y_adjustment = ytop * height * 3
+
+    # Add room on top and bottom of plot. Include enough space here, otherwise curves will exceed the ax limits.
+    y_adjustment = 3 * (ytop * height)
+
     xmin = transcript_start - x_adjustment
     xmax = transcript_stop + x_adjustment
     ymin = ybottom - y_adjustment
     ymax = ytop + y_adjustment
     ax.set_xlim([xmin, xmax])
     ax.set_ylim([ymin, ymax])
+
+    # Turn off axis labeling.
     ax.axes.get_yaxis().set_visible(False)
     ax.axes.get_xaxis().set_visible(False)
+    
+    # Plot.
     plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom)
     plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
     plot_circles(ax=ax, coordinates=backsplice, y=ybottom, gene_size=gene_length)
+
+    # Replace special characters with spaces and plot sample name above each subplot.
     name = re.sub(r'[-_|]',' ', name)
     ax.set_title(name)
 
+# If installed with pip, this will have already been checked. For now, there is no python 2 compatibility.
 if sys.version_info[0] < 3:
-        raise Exception("Must be using Python 3")
+        raise Exception("This script requires Python 3")
 
 args = parse_args()
 transcript = args.transcript
@@ -343,7 +358,6 @@ chromosome, starts, stops, strand = get_exons(args.database[0], transcript)
 transcript_start = min(starts)
 transcript_stop = max(stops)
 coords = list(sorted(zip(starts, stops)))
-
 
 if args.intron_scale:
     factor = args.intron_scale
@@ -354,25 +368,39 @@ samples = []
 
 for db_path in args.database:
 
-    name = db_path
-    name = db_path.split('.')[0].upper()
+    # Strip sample path of all directory info and remove '.db'.
+    name = os.path.basename(db_path).split('.')[0].upper()
+
     canonical = get_sj(db_path=db_path, table_name="canonical", chromosome=chromosome,
                             start=transcript_start, stop=transcript_stop, strand=strand)
+
     backsplice = get_sj(db_path=db_path, table_name="circle", chromosome=chromosome, 
                             start=transcript_start, stop=transcript_stop, strand=strand)
-    coverage = get_coverage(db_path=db_path, transcript=transcript)
 
-    if strand == '-':
-       coverage.reverse()
+    coverage = get_coverage(db_path=db_path, transcript=transcript)
 
     if args.intron_scale:
         canonical = scale_coords(coords, scaled_coords, canonical)
         backsplice = scale_coords(coords, scaled_coords, backsplice)
 
+
     if args.reduce_canonical:
-        canonical = [(i,j,k // args.reduce_canonical) for i,j,k in canonical]
+
+        # Avoid division by 0 or negative number.
+        if args.reduce_canonical <= 0:
+            print("-rc/ --reduce_canonical must be > 0. Not reducing canonical junctions.")
+
+        else:
+            canonical = [(i,j,k // args.reduce_canonical) for i,j,k in canonical]
+
     if args.reduce_backsplice:
-        backsplice = [(i,j,k // args.reduce_backsplice) for i,j,k in backsplice]
+
+        # Avoid division by 0 or negative number.
+        if args.reduce_backsplice <= 0:
+            print("-rbs/ --reduce_backsplice must be > 0. Not reducing backsplice junctions.")
+
+        else:
+            backsplice = [(i,j,k // args.reduce_backsplice) for i,j,k in backsplice]
 
     samples.append((name, canonical, backsplice, coverage))
 
@@ -399,6 +427,7 @@ for index in range(len(samples)):
         color = [args.color + (i/max_coverage,) for i in coverage]
     else:
         color = [args.color + (0,) for i in coverage] 
+    
     samples[index] += (color,)
 
 
@@ -410,7 +439,7 @@ for i in range(len(samples)):
 
 plt.subplots_adjust(hspace=0.4, top=0.8, bottom=0.2)
 if args.gene:
-    title = "%s (%s)" % (args.gene, transcript)
+    title = "%s_%s" % (args.gene, transcript)
 else:
     title = transcript
 
@@ -420,13 +449,13 @@ plt.savefig("%s.svg" % title)
 html_str = '''
 <html>
 <body>
-<img src="%s.svg" alt="%s">
+<img src="%s.svg" alt="Cannot find %s.svg. Make sure the html file and svg file are in the same directory">
 </body>
 </html>
 '''
 
-with open("%s.html" % title,"w") as html:
+with open("%s.html" % title, "w") as html:
     html.write(html_str % (title, title))
 
 if not args.repress_open:
-    webbrowser.open('file://'+os.path.realpath("%s.html" % title))
+    webbrowser.open('file://' + os.path.realpath("%s.html" % title))

@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='circleVis',
-    version='0.1.dev2',
+    version='0.1.dev3',
     author='Nathan Ungerleider',
     author_email='nungerle@tulane.edu',
     description='Visualize splice junctions, backsplice junctions (circleRNA) and coverage from RNA-Seq datasets',
@@ -15,6 +15,6 @@ setuptools.setup(
                 ),
     install_requires = ['matplotlib', 'numpy'],
     python_requires='>=3',
-    scripts=['bin/circplot', 'bin/circbuild'],
+    scripts=['bin/circplot', 'bin/circbuild', 'bin/find_circ_convert', 'bin/star_sj_convert'],
 )
 
