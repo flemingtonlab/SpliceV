@@ -5,3 +5,13 @@
 .DS_store
 .DS_Store?
 .Trashes
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg
+/*.egg-info
+
+# Setuptools distribution folder.
+/dist/
+
+# Compiled python modules
+*pyc
