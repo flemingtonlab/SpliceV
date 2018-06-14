@@ -6,7 +6,7 @@ import sys
 
 path = sys.argv[1]
 
-with open(path, 'r') as fh, open(path + '.circlevis.bed', 'w') as outfile:
+with open(path, 'r') as fh, open(path + '.canonical.bed', 'w') as outfile:
     for line in fh:
         try:
             line = line.split('\t')
