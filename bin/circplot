@@ -168,7 +168,7 @@ def plot_exons(ax, coordinates, y, height, colors):
         cx = rx + width / 2.0
         cy = ry + height / 2.0
         left, right = ax.get_xlim()
-        if width / (right - left) > .005:
+        if width / (right - left) > .004:
             ax.annotate(str(exon_nums[index]), (cx, cy), color="0.5",  
                 fontsize=3, ha='center', va='center')
         index += 1
