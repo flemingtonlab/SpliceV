@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='circleVis',
-    version='0.1.dev3',
+    version='0.1.dev4',
     author='Nathan Ungerleider',
     author_email='nungerle@tulane.edu',
     description='Visualize splice junctions, backsplice junctions (circleRNA) and coverage from RNA-Seq datasets',
