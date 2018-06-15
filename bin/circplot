@@ -168,8 +168,14 @@ def plot_exons(ax, coordinates, y, height, colors):
         cx = rx + width / 2.0
         cy = ry + height / 2.0
         left, right = ax.get_xlim()
+
+        # White numbers if exon is dark, otherwise black numbers.
         if width / (right - left) > .006:
-            ax.annotate(str(exon_nums[index]), (cx, cy), color="0.5",  
+            if color[-1] >= 0.5:
+                num_color = 'w'
+            else:
+                num_color = 'k'
+            ax.annotate(str(exon_nums[index]), (cx, cy), color=num_color,  
                 fontsize=3, ha='center', va='center')
         index += 1
 
