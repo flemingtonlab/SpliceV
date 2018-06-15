@@ -103,10 +103,10 @@ def get_coverage(db_path, transcript):
     query = (transcript, )
   
     fetched = c.execute('SELECT coverage, start FROM coverage WHERE transcript=?', query).fetchall()
-    if strand == '+':
-        fetched.sort(key=lambda x:x[1], reverse=True)
-    else:
-        fetched.sort(key=lambda x:x[1])
+    #if strand == '+':
+    #    fetched.sort(key=lambda x:x[1], reverse=True)
+    #else:
+    fetched.sort(key=lambda x:x[1])
 
     return [i[0] for i in fetched]
 
@@ -442,17 +442,18 @@ for index in range(len(samples)):
 
 # Plot for each sample
 num_plots = len(args.database)
-fig = plt.figure(figsize=(15, 5 * num_plots))
+fig = plt.figure(figsize=(15, 4 * num_plots))
 for i in range(len(samples)):
     add_ax(num_plots, i + 1, i)
 
-plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.1)
+#plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.1)
 if args.gene:
     title = "%s_%s" % (args.gene, transcript)
 else:
     title = transcript
 
-plt.suptitle(title, fontsize=16, fontweight ='bold')
+#plt.suptitle(title, fontsize=16, fontweight ='bold')
+plt.tight_layout()
 plt.savefig("%s.svg" % title)
 
 html_str = '''
