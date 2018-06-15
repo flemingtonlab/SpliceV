@@ -163,11 +163,14 @@ def plot_exons(ax, coordinates, y, height, colors):
         rect = patches.Rectangle((start, y), length, height, facecolor=color, edgecolor='k', linewidth=.5)
         ax.add_patch(rect)
         rx, ry = rect.get_xy()
-        cx = rx + rect.get_width()/2.0
-        cy = ry + rect.get_height()/2.0
-
-        ax.annotate(str(exon_nums[index]), (cx, cy), color="0.5",  
-                fontsize=6, ha='center', va='center')
+        width = rect.get_width()
+        height = rect.get_height()
+        cx = rx + width / 2.0
+        cy = ry + height / 2.0
+        left, right = ax.get_xlim()
+        if width / (right - left) > .005:
+            ax.annotate(str(exon_nums[index]), (cx, cy), color="0.5",  
+                fontsize=3, ha='center', va='center')
         index += 1
 
 
