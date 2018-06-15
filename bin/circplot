@@ -4,7 +4,7 @@ import os
 import sqlite3
 from matplotlib.path import Path
 import matplotlib.patches as patches
-from numpy import arange, linspace
+from numpy import arange, linspace, sqrt
 import matplotlib.pyplot as plt
 import argparse
 from collections import defaultdict
@@ -154,10 +154,21 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size):
 def plot_exons(ax, coordinates, y, height, colors):
     '''Takes coordinates and coverage and plots exons in color with (lack of) alpha value representing relative coverage of an exon.'''
 
+    exon_nums = list(range(1, len(coordinates) + 1))
+    index = 0
+    if strand == '-':
+        exon_nums.reverse()
     for (start, stop), color in zip(coordinates, colors):
         length = stop - start
         rect = patches.Rectangle((start, y), length, height, facecolor=color, edgecolor='k', linewidth=.5)
         ax.add_patch(rect)
+        rx, ry = rect.get_xy()
+        cx = rx + rect.get_width()/2.0
+        cy = ry + rect.get_height()/2.0
+
+        ax.annotate(str(exon_nums[index]), (cx, cy), color="0.5",  
+                fontsize=6, ha='center', va='center')
+        index += 1
 
 
 def plot_SJ_curves(ax, coordinates, y):
@@ -168,8 +179,8 @@ def plot_SJ_curves(ax, coordinates, y):
     alpha = 0.2
 
     # Curve depth (radians)
-    radian_low = 0.2
-    radian_high = 0.4
+    radian_low = 0.15
+    radian_high = 0.35
     radian_diff = radian_high - radian_low
     step_denominator = 1 / radian_diff
 
@@ -180,24 +191,13 @@ def plot_SJ_curves(ax, coordinates, y):
     # Plots each junction
     for start, stop, counts in coordinates:
         if counts != 0:
-            radian_corr = 1
-            arc_len = stop - start  
 
-            # Depending on arc length, apply a radian correction (prevent arc exceeding y axis limits)
-            if arc_len > (xlen / 1.2):
-                radian_corr = (0.4*arc_len/xlen)
-            elif arc_len > (xlen / 2):
-                radian_corr = (0.6*arc_len/xlen)                
-            elif arc_len > (0.8*xlen / 4):
-                radian_corr = (.6* arc_len/xlen)            
-            elif arc_len > (xlen / 8):
-                radian_corr = (arc_len/xlen)
             
             # Plots each junction, increasing radians by amount defined by counts. (More counts = smaller difference in radians per curve plotted)
             step = 1 / (counts * step_denominator)
             for radians in arange(radian_low, radian_high, step):
                 ax.add_patch(patches.ConnectionPatch((start, y), (stop, y), coordsA='data',
-                 connectionstyle=patches.ConnectionStyle("Arc3, rad=-"+str(radians * radian_corr)), linewidth=linewidth, alpha=alpha))
+                 connectionstyle=patches.ConnectionStyle("Arc3, rad=-"+str(radians )), linewidth=linewidth, alpha=alpha))
 
 
 def plot_circles(ax, coordinates, y, gene_size):
@@ -326,7 +326,7 @@ def add_ax(num_plots, n, sample_ind):
     x_adjustment = 0.05 * gene_length
 
     # Add room on top and bottom of plot. Include enough space here, otherwise curves will exceed the ax limits.
-    y_adjustment = 3 * (ytop * height)
+    y_adjustment = 6 * (ytop * height)
 
     xmin = transcript_start - x_adjustment
     xmax = transcript_stop + x_adjustment
@@ -433,11 +433,11 @@ for index in range(len(samples)):
 
 # Plot for each sample
 num_plots = len(args.database)
-fig = plt.figure(figsize=(15, 3 * num_plots))
+fig = plt.figure(figsize=(15, 5 * num_plots))
 for i in range(len(samples)):
     add_ax(num_plots, i + 1, i)
 
-plt.subplots_adjust(hspace=0.4, top=0.8, bottom=0.2)
+plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.1)
 if args.gene:
     title = "%s_%s" % (args.gene, transcript)
 else:
