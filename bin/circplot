@@ -455,7 +455,6 @@ else:
 #plt.suptitle(title, fontsize=16, fontweight ='bold')
 plt.tight_layout()
 plt.savefig("%s.svg" % title)
-
 html_str = '''
 <html>
 <body>

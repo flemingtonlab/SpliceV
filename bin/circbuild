@@ -169,27 +169,32 @@ def build_junction_table(bed_path, table_name):
     conn.commit()
     conn.close()
 
-if sys.version_info[0] < 3:
+
+if __name__ == '__main__':
+
+    if sys.version_info[0] < 3:
         raise Exception("Must be using Python 3")
 
-args = parse_args()
-gtf_path = args.gtf_path
-out = args.out
+    args = parse_args()
+    gtf_path = args.gtf_path
+    out = args.out
 
-try:
-    conn = sqlite3.connect('%s.db' % out)
-except sqlite3.OperationalError:
-    sys.exit("%s.db cannot be opened." % out)
+    if os.path.isfile(os.path.realpath('%s.db' % out)):
+        sys.exit('\n"%s.db" is an existing database. For this program to run, you must change the "--output" argument or delete the existing database\n' % out)
+    try:
+        conn = sqlite3.connect('%s.db' % out)
+    except sqlite3.OperationalError:
+        sys.exit("%s.db cannot be opened." % out)
 
-conn.close()
+    conn.close()
 
-max_coord = 400000000   # If there is a chromosome larger than this, increase this number
-interval = 10000  
-#for handle in args:
- #   if not os.path.exists(handle):
-  #      sys.exit(("{} was not found".format(handle)))
+    max_coord = 400000000   # If there is a chromosome larger than this, increase this number
+    interval = 10000  
+    #for handle in args:
+    #   if not os.path.exists(handle):
+    #      sys.exit(("{} was not found".format(handle)))
 
-build_sample_db(parsed_args=args)
-build_junction_table(bed_path=args.sjbed, table_name="canonical")
-build_junction_table(bed_path=args.circbed, table_name="circle")
+    build_sample_db(parsed_args=args)
+    build_junction_table(bed_path=args.sjbed, table_name="canonical")
+    build_junction_table(bed_path=args.circbed, table_name="circle")
 
