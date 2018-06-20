@@ -176,7 +176,7 @@ def plot_exons(ax, coordinates, y, height, colors):
             else:
                 num_color = 'k'
             ax.annotate(str(exon_nums[index]), (cx, cy), color=num_color,  
-                fontsize=3, ha='center', va='center')
+                fontsize=6, ha='center', va='center')
         index += 1
 
 
@@ -216,7 +216,7 @@ def plot_circles(ax, coordinates, y, gene_size):
         if counts != 0:
             step = 1 /(counts * 2)
             for num in arange(0.0, 0.5, step):
-                draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.15, gene_size=gene_size)
+                draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size)
 
 
 def scale_introns(coords, scaling_factor):
@@ -335,7 +335,7 @@ def add_ax(num_plots, n, sample_ind):
     x_adjustment = 0.05 * gene_length
 
     # Add room on top and bottom of plot. Include enough space here, otherwise curves will exceed the ax limits.
-    y_adjustment = 6 * (ytop * height)
+    y_adjustment = 2 * (ytop * height)
 
     xmin = transcript_start - x_adjustment
     xmax = transcript_stop + x_adjustment
