@@ -144,7 +144,7 @@ def build_sample_db(parsed_args):
             for exon_id, values in master[chromosome][position].items():
                 transcript, exon = exon_id.split('__')
                 start, stop, strand, base_coverage, gene = values
-                coverage = base_coverage / (1 + stop - start) 
+                coverage = base_coverage / float(1 + stop - start) 
                 c.execute("INSERT INTO %s VALUES(?,?,?,?,?,?,?,?)" % table_name, (gene, transcript, exon, coverage, chromosome, start, stop, strand))
     
     conn.commit()
@@ -172,8 +172,8 @@ def build_junction_table(bed_path, table_name):
 
 if __name__ == '__main__':
 
-    if sys.version_info[0] < 3:
-        raise Exception("Must be using Python 3")
+#    if sys.version_info[0] < 3:
+ #       raise Exception("Must be using Python 3")
 
     args = parse_args()
     gtf_path = args.gtf_path

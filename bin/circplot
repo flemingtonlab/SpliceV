@@ -214,7 +214,7 @@ def plot_circles(ax, coordinates, y, gene_size):
 
     for start, stop, counts in coordinates:
         if counts != 0:
-            step = 1 /(counts * 2)
+            step = 1.0 /(counts * 2.0)
             for num in arange(0.0, 0.5, step):
                 draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size)
 
@@ -282,7 +282,6 @@ def scale_coords(oldranges, newranges, coords):
 
 def to_rgb(color):
     '''Converts hex or color name to rgb. Coverage is set up to be represented by 'alpha' of rgba'''
-
     colordict = {
         'red': '#FF0000',
         'blue': '#0000FF',
@@ -298,17 +297,15 @@ def to_rgb(color):
     if type(color) != str:
         print("Invalid color input: %s\n Color is set to red" % color)
         return (1,0,0)
-    
+         
     if color[0] != '#' or len(color) != 7:
         if color in colordict:
             color = colordict[color.lower()]
         else:
             print("Invalid color input: %s\n Color is set to red" % color)
             return (1,0,0)
-
     try: 
-        rgb = tuple([int(color[i:i+2], 16)/255 for i in range(1, len(color), 2)])
-
+        rgb = tuple([int(color[i:i+2], 16)/255.0 for i in range(1, len(color), 2)])
     except ValueError:
         print("Invalid hex input: %s. Values must range from 0-9 and A-F.\n Color is set to red" % color)
         return (1,0,0)
@@ -347,7 +344,6 @@ def add_ax(num_plots, n, sample_ind):
     # Turn off axis labeling.
     ax.axes.get_yaxis().set_visible(False)
     ax.axes.get_xaxis().set_visible(False)
-    
     # Plot.
     plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom)
     plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
@@ -358,8 +354,8 @@ def add_ax(num_plots, n, sample_ind):
     ax.set_title(name)
 
 # If installed with pip, this will have already been checked. For now, there is no python 2 compatibility.
-if sys.version_info[0] < 3:
-        raise Exception("This script requires Python 3")
+#if sys.version_info[0] < 3:
+ #       raise Exception("This script requires Python 3")
 
 args = parse_args()
 transcript = args.transcript
