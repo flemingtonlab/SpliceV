@@ -1,7 +1,7 @@
 # circleVis #
 Visualize coverage, canonical, and backsplice junctions.
 ## Requirements ##
-circleVis works with Python 3.0 and newer.
+circleVis works with Python 2.7 and 3.0+.
 ## Dependencies ##
 * Matplotlib
 * Numpy
