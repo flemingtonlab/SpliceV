@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!python
 import sys
 import os
 import sqlite3
@@ -25,7 +25,6 @@ def parse_args():
     parser.add_argument("-rc", "--reduce_canonical", type=float, help='Factor by which to reduce canonical curves', metavar='')
     parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves', metavar='')
     parser.add_argument("-ro", "--repress_open", action='store_true', help='Do not open plot in browser (only save it)')
-    parser.add_argument("-en", "--exon_numbering", action='store_true', help='Label exons')
     args = parser.parse_args()
 
     for path in args.database: 
@@ -152,7 +151,7 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size):
     ax.add_patch(patch)
 
 
-def plot_exons(ax, coordinates, y, height, colors, numbering=False):
+def plot_exons(ax, coordinates, y, height, colors):
     '''Takes coordinates and coverage and plots exons in color with (lack of) alpha value representing relative coverage of an exon.'''
 
     exon_nums = list(range(1, len(coordinates) + 1))
@@ -163,24 +162,22 @@ def plot_exons(ax, coordinates, y, height, colors, numbering=False):
         length = stop - start
         rect = patches.Rectangle((start, y), length, height, facecolor=color, edgecolor='k', linewidth=.5)
         ax.add_patch(rect)
-        
-        if numbering:
-            rx, ry = rect.get_xy()
-            width = rect.get_width()
-            height = rect.get_height()
-            cx = rx + width / 2.0
-            cy = ry + height / 2.0
-            left, right = ax.get_xlim()
+        rx, ry = rect.get_xy()
+        width = rect.get_width()
+        height = rect.get_height()
+        cx = rx + width / 2.0
+        cy = ry + height / 2.0
+        left, right = ax.get_xlim()
 
-            # White numbers if exon is dark, otherwise black numbers.
-            if width / (right - left) > .006:
-                if color[-1] >= 0.5:
-                    num_color = 'w'
-                else:
-                    num_color = 'k'
-                ax.annotate(str(exon_nums[index]), (cx, cy), color=num_color,  
-                    fontsize=6, ha='center', va='center')
-            index += 1
+        # White numbers if exon is dark, otherwise black numbers.
+        if width / (right - left) > .006:
+            if color[-1] >= 0.5:
+                num_color = 'w'
+            else:
+                num_color = 'k'
+            ax.annotate(str(exon_nums[index]), (cx, cy), color=num_color,  
+                fontsize=6, ha='center', va='center')
+        index += 1
 
 
 def plot_SJ_curves(ax, coordinates, y):
@@ -348,7 +345,7 @@ def add_ax(num_plots, n, sample_ind):
     ax.axes.get_yaxis().set_visible(False)
     ax.axes.get_xaxis().set_visible(False)
     # Plot.
-    plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom, numbering=args.exon_numbering)
+    plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom)
     plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
     plot_circles(ax=ax, coordinates=backsplice, y=ybottom, gene_size=gene_length)
 
