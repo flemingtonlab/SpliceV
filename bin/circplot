@@ -93,7 +93,7 @@ def get_exons(db_path, transcript):
         chromosomes, starts, stops, strands = map(list,zip(*fetched.fetchall()))
     except ValueError:
         sys.exit("Transcript %s not found in db %s. Gene and transcript names are case sensitive - make sure you have the spelling correct"
-         "and the gene/transcript name matches the entry in the gtf file used with circbuild" % (transcript, db_path))     
+         " and the gene/transcript name matches the entry in the gtf file used with circbuild" % (transcript, db_path))     
     
     if len (set(chromosomes)) > 1:
         print("Error: {transcript} found on more than one chromosome:\n{chromosome}".format(
