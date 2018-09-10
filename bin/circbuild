@@ -28,6 +28,22 @@ def parse_args():
 
     return args
 
+def index_gtf(path):
+
+    ix = []
+    gtf = open(path)
+    line = gtf.readline()
+    chromosome = '_'
+    while line:
+        if line[0] == '#':
+            line = gtf.readline()
+            continue
+        if chromosome != line.split('\t', 1)[0]:
+
+            chromosome = line.split('\t', 1)[0]
+            print(gtf.tell(), chromosome)
+        line = gtf.readline()
+
 def index_fasta(path):
 # NAME	Name of this reference sequence
 # LENGTH	Total length of this reference sequence, in bases
