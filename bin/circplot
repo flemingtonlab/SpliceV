@@ -2,15 +2,18 @@
 import sys
 import os
 import sqlite3
-from matplotlib.path import Path
-import matplotlib.patches as patches
-from numpy import arange, linspace, sqrt
-import matplotlib.pyplot as plt
+import matplotlib
+from numpy import arange, linspace, sqrt, random
 import argparse
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import webbrowser
 import re
 
+matplotlib.use('Agg')
+
+from matplotlib.path import Path
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 
 def parse_args():
    
@@ -20,7 +23,7 @@ def parse_args():
     parser.add_argument("-c", "--color", default="#C21807", type=str, help="Exon color. Hex colors (i.e. \"\#4286f4\". For hex, an escape \"\\\" must precede the argument) or names (i.e. \"red\")", metavar='')
     parser.add_argument("-t", "--transcript",  type=str, help='Name of transcript to plot', metavar='')
     parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene', metavar='')
-    #parser.add_argument("-f", "--filter", action='store_true', help='Filter out non-exonic junctions', metavar='')
+    parser.add_argument("-f", "--filter", default=0, type=int, metavar='', help='Filter out sj and circles that have fewer than this number of counts.')
     parser.add_argument("-n", "--normalize", action='store_true', help='Normalize coverage between samples')
     parser.add_argument("-rc", "--reduce_canonical", type=float, help='Factor by which to reduce canonical curves', metavar='')
     parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves', metavar='')
@@ -124,33 +127,130 @@ def get_coverage(db_path, transcript):
     return [i[0] for i in fetched]
 
 
-def get_sj(db_path, table_name, chromosome, start, stop, strand):
+def get_sj(db_path, table_name, chromosome, start, stop, strand, filt=0):
     ''' Takes chromosomal coordinates and returns junctions in that range. 
         Use for both canonical and backsplice junctions. Name of table with canonical junctions: "canonical", backsplice: "circle" '''
 
-    query = (chromosome, start, stop, strand)
+    query = (chromosome, start, stop, strand, filt)
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
-    junctions = c.execute('SELECT start, stop, counts FROM %s WHERE chromosome=? and start>=? and stop<=? and strand=?' % table_name, query).fetchall()
+    junctions = c.execute('SELECT start, stop, counts FROM %s WHERE chromosome=? and start>=? and stop<=? and strand=? and counts>=?' % table_name, query).fetchall()
     conn.close()
 
     return junctions
 
- 
-def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size):
+
+def calc_bez_max(p0, p1, p2, p3=None, t=0.5, quadratic=False):
+  
+    if quadratic:
+        x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x
+        y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y   
+
+
+    # Cubic
+    else:
+        x = (1-t)*(1-t)*(1-t)*p0.x + 3*(1-t)*(1-t)*t*p1.x + 3*(1-t)*t*t*p2.x + t*t*t*p3.x
+        y = (1-t)*(1-t)*(1-t)*p0.y + 3*(1-t)*(1-t)*t*p1.y + 3*(1-t)*t*t*p2.y + t*t*t*p3.y  
+
+    return x, y
+
+
+class Box:
+
+    def __init__(self, x0, x1, y0, y1):
+        self.x0 = x0
+        self.x1 = x1
+        self.y0 = y0
+        self.y1 = y1
+
+
+def intersect(boxa, boxb, subtract):
+    xextra = (boxa.x1 - boxa.x0)/4
+    yextra = (boxa.y1 - boxa.y0)/4
+    if boxa.x0 -xextra<= boxb.x0 <= boxa.x1+xextra or boxa.x0-xextra <= boxb.x1 <= boxa.x1+xextra:
+        
+        if boxa.y0-yextra <= boxb.y0 <= boxa.y1+yextra or boxa.y0-yextra <=boxb.y1<=boxa.y1+yextra:
+            if not subtract:
+                boxb.y0 += .02
+                boxb.y1 += .02
+
+            else:
+                boxb.y0 -= .02
+                boxb.y1 -= .02
+
+            if random.randint(2) == 1:
+                boxb.x0 += xextra/10
+                boxb.x1 += xextra/10
+            else:
+                boxb.x0 -= xextra/10
+                boxb.x1 -= xextra/10
+
+            return intersect(boxa, boxb, subtract)
+    
+    ax = plt.gca()
+    ymax = ax.get_ylim()[1]
+    plt.ylim([plt.ylim()[0], max([ymax, boxb.y1])])
+
+    return boxb
+
+
+def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=True):
     ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
-        "bezier_offset" controls the depth of the circle junctions on the plot. Default is 0.15. '''
+        "bezier_offset" controls the depth of the circle junctions on the plot.'''
 
 
     ylim = ax.get_ylim()
     space = ylim[1] - ylim[0]
     size_adjust = gene_size / 20
     
+    Point = namedtuple('Point', ['x', 'y'])
+    p0 = Point(start, y)
+    p1 = Point(start - size_adjust, y - (bezier_offset * space) -  adjust)
+    p2 = Point(stop + size_adjust, y - (bezier_offset * space) - adjust)
+    p3 = Point(stop, y)
+
+    if not plot:
+        return p0,p1,p2,p3
+
     verts = [
-        (start, y),  # P0
-        (start - size_adjust, y - (bezier_offset * space) -  adjust), # P1
-        (stop + size_adjust, y - (bezier_offset * space) - adjust), # P2
-        (stop, y), # P3
+        p0,
+        p1,
+        p2,
+        p3,        
+        ]
+
+    codes = [Path.MOVETO,
+             Path.CURVE4,
+             Path.CURVE4,
+             Path.CURVE4,
+             ]
+
+    path = Path(verts, codes)
+    patch = patches.PathPatch(path, facecolor='none', lw=1, alpha=.1, ec='0') 
+    ax.add_patch(patch)
+
+
+def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
+    ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
+        "bezier_offset" controls the depth of the circle junctions on the plot. '''
+
+    xlim  = ax.get_xlim()
+    xspace = xlim[1] -xlim[0]
+    length = sqrt((stop - start)/ xspace)    
+    
+    Point = namedtuple('Point', ['x', 'y'])
+    p0 = Point(start, y)
+    p1 = Point(start + .2 * (stop-start), y  + (length*bezier_offset) + adjust)
+    p2 = Point(stop - .2 * (stop-start), y  + (length*bezier_offset) + adjust)
+    p3 = Point(stop, y)
+    if not plot:
+        return p0,p1,p2,p3
+
+    verts = [
+        p0,
+        p1,
+        p2,
+        p3,        
         ]
 
     codes = [Path.MOVETO,
@@ -185,7 +285,7 @@ def plot_exons(ax, coordinates, y, height, colors, numbering=False):
             left, right = ax.get_xlim()
 
             # White numbers if exon is dark, otherwise black numbers.
-            if width / (right - left) > .006:
+            if width / (right - left) > .0065:
                 if color[-1] >= 0.5:
                     num_color = 'w'
                 else:
@@ -195,45 +295,83 @@ def plot_exons(ax, coordinates, y, height, colors, numbering=False):
             index += 1
 
 
-def plot_SJ_curves(ax, coordinates, y):
-    '''Takes coordinates and plots canonical junctions (above exons)'''
-
-    # Curve line properties
-    linewidth = 1 
-    alpha = 0.2
-
-    # Curve depth (radians)
-    radian_low = 0.15
-    radian_high = 0.35
-    radian_diff = radian_high - radian_low
-    step_denominator = 1 / radian_diff
-
-    # Length of plot
-    xmin, xmax = ax.get_xlim()
-    xlen = xmax - xmin
-
-    # Plots each junction
-    for start, stop, counts in coordinates:
-        if counts != 0:
-            
-            # Plots each junction, increasing radians by amount defined by counts. (More counts = smaller difference in radians per curve plotted)
-            step = 1 / (counts * step_denominator)
-            for radians in arange(radian_low, radian_high, step):
-
-                ax.add_patch(patches.ConnectionPatch((start, y), (stop, y), coordsA='data',
-                 connectionstyle=patches.ConnectionStyle("Arc3, rad=-"+str(radians )), linewidth=linewidth, alpha=alpha))
-
-
 def plot_circles(ax, coordinates, y, gene_size):
     '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
-
+    
+    texts, boxes = [], []
     for start, stop, counts in coordinates:
         if counts != 0:
-            step = 1.0 /(counts * 2.0)
-            for num in arange(0.0, 0.5, step):
+            step = 1.0 /counts
+            factor = .25
+            for num in arange(0.0, factor, factor * step):
                 draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size)
 
+            p0, p1, p2, p3 = draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size, plot=False)
+            x_mid, y_mid = calc_bez_max(p0, p1, p2, p3)
+            text = plt.annotate(str(counts), (x_mid, y_mid), ha='center', va='top', alpha=.2, fontsize=8, xytext=(x_mid, y_mid-.3), arrowprops={'arrowstyle':'-','alpha':.05, 'lw':1})
+            texts.append(text)
+            plt.draw()
+            r = fig.canvas.get_renderer()
 
+    for text in texts:
+        extent = text.get_window_extent(r).transformed(ax.transData.inverted())
+        box = Box(extent.xmin, extent.xmax, extent.ymin, extent.ymax)
+        boxes.append(box)
+
+    for indexa, boxa in enumerate(boxes):
+        for indexb, boxb in enumerate(boxes):
+            if indexa != indexb:
+                new_boxb = intersect(boxa, boxb, subtract=True)
+                boxes[indexb] = new_boxb
+
+    for text, box in zip(texts, boxes):
+        x_mid = (box.x0 + box.x1)/2
+        text.set_position((x_mid, box.y1)) 
+
+    
+    ymin = ax.get_ylim()[0]
+    plt.ylim([min([ymin, min(i.y0 for i in boxes)]), ax.get_ylim()[1]])
+
+
+def plot_SJ_curves(ax, coordinates, y):
+    '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
+
+    texts, boxes = [], []
+    for start, stop, counts in coordinates:
+        if counts != 0:
+            step = 1.0 /(counts)
+            for num in arange(0.0, 0.1, 0.1 * step):
+                draw_canonical_splice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=1)
+        
+            p0, p1, p2, p3 = draw_canonical_splice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=1, plot=False)
+
+            x_mid, y_mid = calc_bez_max(p0, p1, p2, p3)
+            text = plt.annotate(str(counts), (x_mid, y_mid), ha='center', va='bottom', alpha=.2, fontsize=8, xytext=(x_mid, y_mid+.1), arrowprops={'arrowstyle':'-','alpha':.05, 'lw':1})
+            texts.append(text)
+            plt.draw()
+            r = fig.canvas.get_renderer()
+
+    for text in texts:
+        extent = text.get_window_extent(r).transformed(ax.transData.inverted())
+        box = Box(extent.xmin, extent.xmax, extent.ymin, extent.ymax)
+        boxes.append(box)
+
+    for indexa, boxa in enumerate(boxes):
+        for indexb, boxb in enumerate(boxes):
+            if indexa != indexb:
+                new_boxb = intersect(boxa, boxb, subtract=False)
+               # print(new_boxb.y0)
+                boxes[indexb] = new_boxb
+
+    for text, box in zip(texts, boxes):
+        x_mid = (box.x0 + box.x1)/2
+        text.set_position((x_mid, box.y0))
+
+
+    
+    ymax = ax.get_ylim()[1]
+    plt.ylim([ax.get_ylim()[0], max([ymax, max(i.y1 for i in boxes)])])
+    
 def scale_introns(coords, scaling_factor):
     '''Reduces intron size, returns new exon coordinates'''
 
@@ -322,11 +460,56 @@ def to_rgb(color):
             return (1,0,0)
     try: 
         rgb = tuple([int(color[i:i+2], 16)/255.0 for i in range(1, len(color), 2)])
+
     except ValueError:
         print("Invalid hex input: %s. Values must range from 0-9 and A-F.\n Color is set to red" % color)
         return (1,0,0)
 
     return rgb
+
+def add_arrow(gene_coords, strand):
+    ax = plt.gca()
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    ylen = ymax - ymin
+    xlen = xmax - xmin
+    ytransform = xlen/ylen
+    print(ytransform)
+    height = 0.6
+    width = 0.04 * ytransform
+    height2 = 0.2 
+    width2 = 0.3 * ytransform
+
+    up, down = min([i[0] for i in gene_coords]), max([i[1] for i in gene_coords])
+    r1_width = xlen / 400
+    
+    path_data = [
+        (Path.MOVETO, (up, 1.2)),
+        (Path.LINETO, (up, 1.2 + height)),
+        (Path.LINETO, (up + width, 1.2 + height)),
+        (Path.LINETO, (up + width, 1.2 + height + 0.1 * height)),
+        (Path.LINETO, (up + width + width/10, 1.2 + height)),
+        (Path.LINETO, (up + width, 1.2 + height - 0.2 * height)),
+        (Path.LINETO, (up + width, 1.2 + height - 0.1 * height)),
+        (Path.LINETO, (up + .1 * width, 1.2 + height - 0.1 * height)),   
+        
+
+    ] 
+    codes, verts = zip(*path_data)
+    path = Path(verts, codes)
+    patch = patches.PathPatch(path, facecolor='k', linewidth=1)
+    ax.add_patch(patch)
+    # r1_height = ylen / 10, 
+    # r1_width = xlen / 200
+    # r2_height = r1_width / ytransform
+
+    # r2_width = r1_width * 2
+    # y = 1.1
+
+    # r1 = patches.Rectangle(xy=(up, y), width=r1_width, height=r1_height, color='k')
+    # r2 = patches.Rectangle(xy=(up, y + r1_height - r2_height), width=r2_width, height=r2_height)
+    # ax.add_patch(r1)
+    # ax.add_patch(r2)
 
 
 def add_ax(num_plots, n, sample_ind):
@@ -358,8 +541,8 @@ def add_ax(num_plots, n, sample_ind):
     ax.set_ylim([ymin, ymax])
 
     # Turn off axis labeling.
-    ax.axes.get_yaxis().set_visible(False)
-    ax.axes.get_xaxis().set_visible(False)
+    # ax.axes.get_yaxis().set_visible(False)
+    # ax.axes.get_xaxis().set_visible(False)
     
     # Plot.
     plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom, numbering=args.exon_numbering)
@@ -369,16 +552,15 @@ def add_ax(num_plots, n, sample_ind):
     # Replace special characters with spaces and plot sample name above each subplot.
     name = re.sub(r'[-_|]',' ', name)
     ax.set_title(name)
-    #print(ax.patches)
-    ax.autoscale_view()
-    ax.figure.canvas.draw()
 
+    
 args = parse_args()
 transcript = args.transcript
 chromosome, starts, stops, strand = get_exons(args.database[0], transcript)
 transcript_start = min(starts)
 transcript_stop = max(stops)
 coords = list(sorted(zip(starts, stops)))
+filt = args.filter
 
 if args.intron_scale:
     factor = args.intron_scale
@@ -392,17 +574,16 @@ for db_path in args.database:
     name = os.path.basename(db_path).split('.')[0].upper()
 
     canonical = get_sj(db_path=db_path, table_name="canonical", chromosome=chromosome,
-                            start=transcript_start, stop=transcript_stop, strand=strand)
+                            start=transcript_start, stop=transcript_stop, strand=strand, filt=filt)
 
     backsplice = get_sj(db_path=db_path, table_name="circle", chromosome=chromosome, 
-                            start=transcript_start, stop=transcript_stop, strand=strand)
+                            start=transcript_start, stop=transcript_stop, strand=strand, filt=filt)
 
     coverage = get_coverage(db_path=db_path, transcript=transcript)
 
     if args.intron_scale:
         canonical = scale_coords(coords, scaled_coords, canonical)
         backsplice = scale_coords(coords, scaled_coords, backsplice)
-
 
     if args.reduce_canonical:
 
@@ -411,7 +592,7 @@ for db_path in args.database:
             print("-rc/ --reduce_canonical must be > 0. Not reducing canonical junctions.")
 
         else:
-            canonical = [(i,j,k // args.reduce_canonical) for i,j,k in canonical]
+            canonical = [(i, j, k // args.reduce_canonical) for i, j, k in canonical]
 
     if args.reduce_backsplice:
 
@@ -420,7 +601,7 @@ for db_path in args.database:
             print("-rbs/ --reduce_backsplice must be > 0. Not reducing backsplice junctions.")
 
         else:
-            backsplice = [(i,j,k // args.reduce_backsplice) for i,j,k in backsplice]
+            backsplice = [(i, j, k // args.reduce_backsplice) for i, j, k in backsplice]
 
     samples.append((name, canonical, backsplice, coverage))
 
@@ -430,7 +611,7 @@ if args.intron_scale:
 if args.normalize:
     highest = 0
 
-    for index in range(len(samples)):
+    for index in range(len(samples)): 
 
         coverage = samples[index][3]
         max_coverage = max(coverage)
@@ -445,17 +626,20 @@ for index in range(len(samples)):
     else:
         max_coverage = max(coverage)
     if max_coverage != 0:
-        color = [args.color + (i/max_coverage,) for i in coverage]
+        color = [args.color + (i / max_coverage, ) for i in coverage]
     else:
-        color = [args.color + (0,) for i in coverage] 
+        color = [args.color + (0, ) for i in coverage] 
     
-    samples[index] += (color,)
+    samples[index] += (color, )
 
 # Plot for each sample
 num_plots = len(args.database)
 fig = plt.figure(figsize=(15, 4 * num_plots))
 for i in range(len(samples)):
+    
     add_ax(num_plots, i + 1, i)
+    add_arrow(coords, strand)
+    print(max_coverage, i)
 
 #plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.1)
 if args.gene:
