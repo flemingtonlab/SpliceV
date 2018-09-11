@@ -82,14 +82,20 @@ def prep_bam(path):
 
     return sam
 
-def coverage(bam, chromosome, start, stop):
+def coverage(bam, chromosome, start, stop, strand='+'):
     '''Takes AlignmentFile instance and returns coverage and bases in a dict with position as key'''
 
     pileup = bam.pileup(chromosome, start, stop)
     coverage = defaultdict(list)
     for column in pileup:
-        print("\ncoverage at base %s = %s" % (column.pos,column.n))
+       # print("\ncoverage at base %s = %s" % (column.pos,column.n))
         for read in column.pileups:
+           
+            if strand == '-' and not read.alignment.is_reverse:
+                continue
+            if strand == '+' and read.alignment.is_reverse:
+                continue
+
             if not read.is_del and not read.is_refskip:
                 base = read.alignment.query_sequence[read.query_position]
                 coverage[column.pos].append(base)
@@ -98,10 +104,14 @@ def coverage(bam, chromosome, start, stop):
         sum_c = sum(c.values())
         coverage[key] = (sum_c, c)
 
-    junctions = bam.find_introns(bam.fetch(chromosome, start, stop))
     
-    return coverage
-
+    return np.mean([coverage[i][0] for i in coverage])
 
 def junctions(bam, chromosome, start, stop):
 
+     return [(i[0], i[1], j) for i,j in bam.find_introns(bam.fetch(chromosome, start, stop)).items()]
+
+coords = exons(path, gene)
+for chromosome, start, stop, strand in coords:
+    cov.append(coverage(bam, chromosome, start, stop, strand))
+    

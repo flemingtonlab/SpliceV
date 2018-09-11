@@ -5,9 +5,10 @@ import sqlite3
 import matplotlib
 from numpy import arange, linspace, sqrt, random
 import argparse
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, Counter
 import webbrowser
 import re
+import pysam
 
 matplotlib.use('Agg')
 
@@ -228,6 +229,9 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=T
     path = Path(verts, codes)
     patch = patches.PathPatch(path, facecolor='none', lw=1, alpha=.1, ec='0') 
     ax.add_patch(patch)
+
+
+
 
 
 def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
@@ -580,7 +584,7 @@ for db_path in args.database:
                             start=transcript_start, stop=transcript_stop, strand=strand, filt=filt)
 
     coverage = get_coverage(db_path=db_path, transcript=transcript)
-
+    print(coverage)
     if args.intron_scale:
         canonical = scale_coords(coords, scaled_coords, canonical)
         backsplice = scale_coords(coords, scaled_coords, backsplice)
@@ -638,7 +642,7 @@ fig = plt.figure(figsize=(15, 4 * num_plots))
 for i in range(len(samples)):
     
     add_ax(num_plots, i + 1, i)
-    add_arrow(coords, strand)
+   # add_arrow(coords, strand)
     print(max_coverage, i)
 
 #plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.1)
