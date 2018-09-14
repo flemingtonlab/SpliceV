@@ -133,7 +133,7 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=T
              ]
 
     path = Path(verts, codes)
-    patch = patches.PathPatch(path, facecolor='none', lw=1, alpha=.1, ec='0') 
+    patch = patches.PathPatch(path, facecolor='none', lw=.05, alpha=.7, ec='0') 
     ax.add_patch(patch)
 
 
@@ -167,7 +167,7 @@ def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
              ]
 
     path = Path(verts, codes)
-    patch = patches.PathPatch(path, facecolor='none', lw=.05, alpha=1, ec='0') 
+    patch = patches.PathPatch(path, facecolor='none', lw=.05, alpha=.7, ec='0') 
     ax.add_patch(patch)
 
 
@@ -424,7 +424,7 @@ def add_arrow(gene_coords, strand):
 def add_ax(num_plots, n, sample_ind):
     '''Add new plot'''
 
-    name, canonical,  _, colors = samples[sample_ind]
+    name, canonical,  circle,_, colors = samples[sample_ind]
 
     # Center the plot on the canvas
     ax = plt.subplot(num_plots, 1, n)
@@ -457,7 +457,7 @@ def add_ax(num_plots, n, sample_ind):
     
     plot_exons(ax=ax, coordinates=coords, colors=colors, height=height, y=ybottom, numbering=args.exon_numbering)
     plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
-    # plot_circles(ax=ax, coordinates=backsplice, y=ybottom, gene_size=gene_length)
+    plot_circles(ax=ax, coordinates=circle, y=ybottom, gene_size=gene_length)
 
     # Replace special characters with spaces and plot sample name above each subplot.
     name = re.sub(r'[-_|]',' ', name)
@@ -472,7 +472,7 @@ def longest_transcript(coordinates):
             lengths[transcript] += int(exon[2]) - int(exon[1]) + 1
     
     if len(lengths) == 0:
-        sys.exit("%s not found in gtf file.")
+        sys.exit("Gene not found in gtf file.")
 
     longest = 0
     for transcript, length in lengths.items():
@@ -621,9 +621,12 @@ def junctions(bam, chromosome, upstream, downstream, strand, min_junctions):
     
     return filtered_introns
 
-def circles(bam, chromosome, upstream, downstream, strand, min_overhang):
-    
+def circles(bam, chromosome, upstream, downstream, strand, min_overhang, min_junctions):
+
+    circ_d = defaultdict(int)
+
     fetched = fetch(bam, chromosome, upstream, downstream)
+
 
     for read in fetched:
         if read.has_tag('SA') and not read.is_supplementary:
@@ -636,44 +639,36 @@ def circles(bam, chromosome, upstream, downstream, strand, min_overhang):
             
             start = read.reference_start
             cigar = read.cigarstring
-            
-            # This is not how to do this..need to use cigar to figure out offsets.
-            first_part = cigar.index('M')
-            last_part = supp_cigar.index('M')
-            
+                       
             r1 = sum(list(map(int,re.findall('([0-9]+)M', cigar)))) 
             r2 = sum(list(map(int,re.findall('([0-9]+)M', supp_cigar))))
             
-            if strand == '-' and read.is_read1 and read.is_reverse:
-                q = 0
-            elif strand == '-' and read.is_read2 and not read.is_reverse:
-                q = 1
-            elif strand == '+' and read.is_read1 and not read.is_reverse:
-                q = 2
-            elif strand == '+' and read.is_read2 and read.is_reverse:
-                q = 3
-            else:
-                continue
+            # if strand == '-' and read.is_read1 and read.is_reverse:
+            #     q = 0
+            # elif strand == '-' and read.is_read2 and not read.is_reverse:
+            #     q = 1
+            # elif strand == '+' and read.is_read1 and not read.is_reverse:
+            #     q = 2
+            # elif strand == '+' and read.is_read2 and read.is_reverse:
+            #     q = 3
+            # else:
+            #     continue
 
             if not (r1 > min_overhang and r2 > min_overhang):
                 continue
 
-            if first_part < last_part:
-                beginning = int(start)
-                end = int(supp_start)
 
-            else:
-                beginning = int(supp_start)
-                end = int(start)
+            donor = read.reference_end + 1
+            acceptor = int(supp_start ) 
 
-            if (beginning < end and strand == '-') or (beginning > end and strand == '+'):
-                print('circle')
-                print(read)
-                
-            else:
-                print('lin')
-                print(read)
+            circ_d[(donor, acceptor)] += 1
 
+    filtered_introns = []
+    for (start, stop), count in circ_d.items():
+        if start >= upstream and stop <= downstream and count >= min_junctions:
+            filtered_introns.append((start, stop, count))
+    
+    return filtered_introns        
 
 
 args = parse_args()
@@ -701,7 +696,7 @@ for bampath in args.bam:
     bam = prep_bam(bampath)
     name = os.path.basename(bampath).split('.')[0].upper()
     canonical = junctions(bam, chromosome, transcript_start, transcript_stop, strand, min_junctions)
-
+    circle = circles(bam, chromosome, transcript_start, transcript_stop, strand, 10, 2)
     cov=[]
     for start, stop in coords:
         cov.append(coverage(bam, chromosome, start, stop, strand))
@@ -728,7 +723,7 @@ for bampath in args.bam:
     #     else:
     #         backsplice = [(i, j, k // args.reduce_backsplice) for i, j, k in backsplice]
 
-    samples.append((name, canonical, coverage))
+    samples.append((name, canonical, circle, coverage))
 
 if args.intron_scale:
     coords = scaled_coords
@@ -744,7 +739,7 @@ if args.normalize:
             highest = max_coverage
 
 for index in range(len(samples)):
-    coverage = samples[index][2]
+    coverage = samples[index][3]
 
     if args.normalize:
         max_coverage = highest
