@@ -589,7 +589,8 @@ def coverage(bam, chromosome, start, stop, strand='+'):
         return 0
 
 
-def junctions(bam, chromosome, upstream, downstream, strand, min_junctions):
+def fetch(bam, chromosome, upstream, downstream):
+    
     try:
         fetched = bam.fetch(chromosome, upstream, downstream)
     except ValueError:   
@@ -600,6 +601,11 @@ def junctions(bam, chromosome, upstream, downstream, strand, min_junctions):
                 fetched = bam.fetch(chromosome.replace('chr', ''), upstream, downstream)
             except ValueError:
                 sys.exit("Chromosome %s not found in bam file.." % chromosome)
+    return fetched
+
+def junctions(bam, chromosome, upstream, downstream, strand, min_junctions):
+
+    fetched = fetch(bam, chromosome, upstream, downstream)
 
     if strand == '-':
         stranded = (read for read in fetched if read.is_reverse)
@@ -608,7 +614,67 @@ def junctions(bam, chromosome, upstream, downstream, strand, min_junctions):
  
     introns = bam.find_introns(stranded).items()
     
-    return [(i[0], i[1], j) for i,j in introns if i[0] >= upstream and i[1] <= downstream and j > min_junctions]
+    filtered_introns = []
+    for (start, stop), count in introns:
+        if start >= upstream and stop <= downstream and count >= min_junctions:
+            filtered_introns.append((start, stop, count))
+    
+    return filtered_introns
+
+def circles(bam, chromosome, upstream, downstream, strand, min_overhang):
+    
+    fetched = fetch(bam, chromosome, upstream, downstream)
+
+    for read in fetched:
+        if read.has_tag('SA') and not read.is_supplementary:
+            
+            supp_chromosome, supp_start, supp_strand, supp_cigar, *_  = read.get_tag('SA').split(',')
+            
+            # Interested only in circles, not fusions
+            if supp_chromosome != read.reference_name:
+                continue
+            
+            start = read.reference_start
+            cigar = read.cigarstring
+            
+            # This is not how to do this..need to use cigar to figure out offsets.
+            first_part = cigar.index('M')
+            last_part = supp_cigar.index('M')
+            
+            r1 = sum(list(map(int,re.findall('([0-9]+)M', cigar)))) 
+            r2 = sum(list(map(int,re.findall('([0-9]+)M', supp_cigar))))
+            
+            if strand == '-' and read.is_read1 and read.is_reverse:
+                q = 0
+            elif strand == '-' and read.is_read2 and not read.is_reverse:
+                q = 1
+            elif strand == '+' and read.is_read1 and not read.is_reverse:
+                q = 2
+            elif strand == '+' and read.is_read2 and read.is_reverse:
+                q = 3
+            else:
+                continue
+
+            if not (r1 > min_overhang and r2 > min_overhang):
+                continue
+
+            if first_part < last_part:
+                beginning = int(start)
+                end = int(supp_start)
+
+            else:
+                beginning = int(supp_start)
+                end = int(start)
+
+            if (beginning < end and strand == '-') or (beginning > end and strand == '+'):
+                print('circle')
+                print(read)
+                
+            else:
+                print('lin')
+                print(read)
+
+
 
 args = parse_args()
 transcript = args.transcript
