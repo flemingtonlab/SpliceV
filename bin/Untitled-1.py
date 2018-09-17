@@ -46,7 +46,6 @@ def parse_args():
     return args
 
 
-
 def calc_bez_max(p0, p1, p2, p3=None, t=0.5, quadratic=False):
   
     if quadratic:
@@ -450,8 +449,8 @@ def add_ax(num_plots, n, sample_ind):
     ax.set_ylim([ymin, ymax])
 
     # Turn off axis labeling.
-    # ax.axes.get_yaxis().set_visible(False)
-    # ax.axes.get_xaxis().set_visible(False)
+    ax.axes.get_yaxis().set_visible(False)
+    ax.axes.get_xaxis().set_visible(False)
     
     # Plot.
     
