@@ -59,14 +59,14 @@ def parse():
         sys.exit('Either a gene or a transcript must be specified. (ex. "-t ENST00000390665" or "-g EGFR")')    
 
     #  Color: if not in rgb format already (i.e. 123,11,0)
-    if not len(args.color) == 3:
-        args.color = to_rgb(args.color)
-    else:
-        try:
-            color = list(map(int, args.color.split(',')))
-            args.color = [c / 255 for c in color]  # Matplotlib requires rgb values to be between 0 and 1 (rather than 0-255)
-        except:
+    if ',' in args.color:     
+        color = list(map(int, args.color.split(',')))
+        if len(color) != 3:
             args.color = to_rgb(args.color)
+        else:  
+            args.color = tuple([c / 255 for c in color])  # Matplotlib requires rgb values to be between 0 and 1 (rather than 0-255)
+    else:
+        args.color = to_rgb(args.color)
     
     return args
 
@@ -458,10 +458,13 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None)
                 _, start, stop, bed_strand, counts = line[:5]
                 start = int(start) + 1  # Bed format is 0 indexed
                 stop = int(stop) 
-                if start > stop:
+                if start > stop:    
                     start, stop = stop, start
+                if not (upstream <= start <= downstream and upstream <= stop <= downstream):
+                    continue
                 if strand and strand == bed_strand:
-                    junctions.append((start, stop, counts))
+                    junctions.append((start, stop, int(counts)))
+
     return junctions
 
         
@@ -756,10 +759,10 @@ def main():
         if args.sj:
             canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
         else:
-            canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions, strand=new_strand, rev=rev)
+            canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions=2, strand=new_strand, rev=rev)
         
         if args.bsj:
-            circle = junctions(bam, chromosome, transcript_start, transcript_stop, junction_strand)
+            circle = junction_file_parse(args.bsj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
         else:
             circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=2, strand=new_strand, rev=rev)
         
