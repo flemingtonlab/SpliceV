@@ -448,6 +448,23 @@ def add_ax(num_plots, n, coordinates, strand, numbering, samples, sample_ind):
     ax.set_title(name)
 
 
+def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None):
+
+    junctions = []
+    with open(bed_path, "r") as input_file:
+        for line in input_file:
+            if line.startswith(chromosome):
+                line = line.strip().split()
+                _, start, stop, bed_strand, counts = line[:5]
+                start = int(start) + 1  # Bed format is 0 indexed
+                stop = int(stop) 
+                if start > stop:
+                    start, stop = stop, start
+                if strand and strand == bed_strand:
+                    junctions.append((start, stop, counts))
+    return junctions
+
+        
 def exons(path, gene, transcript=False):
     '''Given a gene or transcript, returns exon coordinates from gtf file -> (chromosome, 5prime coord, 3prime coord, strand) for each exon
         If transcript is False, searches gtf file for gene name , determines the longest daughter transcript, returns exon coordinates. 
@@ -626,6 +643,7 @@ def fetch(bam, chromosome, upstream, downstream):
                 sys.exit("Chromosome %s not found in bam file.." % chromosome)
     return fetched
 
+
 def strand_filter(read, strand=None, rev=False):
 
     if not strand:
@@ -712,32 +730,41 @@ def main():
 
     min_junctions = args.filter
 
-
     if args.intron_scale:
         factor = args.intron_scale
         scaled_coords = scale_introns(exon_coordinates, factor)
 
-
     if args.stranded:
+        junction_strand = strand
         if args.stranded == 'reverse':
             rev = True
-            
         else:
             rev = False
         new_strand = strand
+
     else:
         rev = False
         new_strand = None
+        junction_strand = None
 
     samples = []
     
     for bampath in args.bam:
         name = os.path.basename(bampath).split('.')[0].upper()
         bam = prep_bam(bampath)
-        canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions, strand=new_strand, rev=rev)
-        circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=2, strand=new_strand, rev=rev)
+        
+        if args.sj:
+            canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
+        else:
+            canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions, strand=new_strand, rev=rev)
+        
+        if args.bsj:
+            circle = junctions(bam, chromosome, transcript_start, transcript_stop, junction_strand)
+        else:
+            circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=2, strand=new_strand, rev=rev)
         
         coverage=[]
+        
         for start, stop in exon_coordinates:
             coverage.append(get_coverage(bam, chromosome, start, stop, strand=new_strand, rev=rev, average=True))
             
@@ -831,7 +858,6 @@ def main():
         name = re.sub(r'[-_|]',' ', name)
         ax.set_title(name)
         
-
     #plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.1)
     if args.gene:
         title = args.gene
