@@ -210,7 +210,7 @@ def plot_exons(ax, coordinates, y, height, strand, colors, numbering=False):
 
     for (start, stop), color in zip(coordinates, colors):
         length = stop - start
-        rect = patches.Rectangle((start, y), length, height, facecolor=color, edgecolor='k', linewidth=.5)
+        rect = patches.Rectangle((start, y), length, height, facecolor=color, edgecolor='k', linewidth=.1)
         ax.add_patch(rect)
 
         if numbering:
@@ -581,8 +581,8 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top):
     y_middle = (y_top + y_bottom) / 2
     y_range = y_top - y_middle
     y_vals = y_middle + ((np.array(y_vals)/max(y_vals)) * y_range)
-    ax.plot(x_vals, y_vals, lw=.1, color='k')
-    ax.fill_between(x_vals, y_middle, y_vals, color='.9' )
+    ax.plot(x_vals, y_vals, lw=.2, color='k')
+    ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False )
 
 
 def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=True):
@@ -701,10 +701,11 @@ def circles(bam, chromosome, upstream, downstream, min_overhang, min_junctions, 
     circ_d = defaultdict(int)
 
     fetched = fetch(bam, chromosome, upstream, downstream)
+    stranded = (read for read in fetched if strand_filter(read, strand, rev) and read.cigartuples)
 
-    for read in fetched:
-        if strand_filter(read, strand, rev) and read.has_tag('SA') and not read.is_supplementary:
-            
+    for read in stranded:
+        
+        if read.has_tag('SA') and not read.is_supplementary:
             supp_chromosome, supp_start, supp_strand, supp_cigar, *_  = read.get_tag('SA').split(',')
             
             # Interested only in circles, not fusions
