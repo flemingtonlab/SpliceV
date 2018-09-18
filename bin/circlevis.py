@@ -560,9 +560,9 @@ def prep_bam(path):
         pysam.view('-bho', path.replace('sam', 'bam'), path)
         sam = pysam.AlignmentFile(path.replace('sam', 'bam'))
 
-        try:
-               
+        try:               
             sam.check_index()
+
         except ValueError:
             try:
                 print("\nindexing..\n") 
@@ -574,6 +574,15 @@ def prep_bam(path):
                 pysam.index(path)
                 print("Done.")
     return sam
+
+
+def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top):
+
+    y_middle = (y_top + y_bottom) / 2
+    y_range = y_top - y_middle
+    y_vals = y_middle + ((np.array(y_vals)/max(y_vals)) * y_range)
+    ax.plot(x_vals, y_vals, lw=.1, color='k')
+    ax.fill_between(x_vals, y_middle, y_vals, color='.9' )
 
 
 def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=True):
@@ -616,11 +625,15 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
 
     for key in coverage:
         c = Counter(coverage[key])
-        sum_c = sum(c.values())
+        sum_c = sum(list(c.values()))
         coverage[key] = (sum_c, c)
 
     if not average:
-        return coverage
+        coverage = {i: coverage[i][0] for i in coverage} 
+        y = list(coverage.values())
+        x = list(coverage.keys())
+
+        return x, y
 
     avg = []
     for i in coverage:
@@ -650,8 +663,9 @@ def fetch(bam, chromosome, upstream, downstream):
 def strand_filter(read, strand=None, rev=False):
 
     if not strand:
+        
         return 1
-    
+
     strand_switch = {'+': '-', '-': '+'}
     if strand not in strand_switch:
         return 1
@@ -671,8 +685,7 @@ def junctions(bam, chromosome, upstream, downstream, min_junctions, strand=None,
 
     fetched = fetch(bam, chromosome, upstream, downstream)
 
-    stranded = (read for read in fetched if strand_filter(read, strand, rev))
- 
+    stranded = (read for read in fetched if strand_filter(read, strand, rev) and read.cigartuples)
     introns = bam.find_introns(stranded).items()
     
     filtered_junctions = []
@@ -767,12 +780,13 @@ def main():
             circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=2, strand=new_strand, rev=rev)
         
         coverage=[]
+        x_fill, y_fill = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev, average=False)
         
         for start, stop in exon_coordinates:
             coverage.append(get_coverage(bam, chromosome, start, stop, strand=new_strand, rev=rev, average=True))
             
         if args.intron_scale:
- 
+            x_fill = [transform(exon_coordinates, scaled_coords, i) for i in x_fill]
             canonical = scale_coords(exon_coordinates, scaled_coords, canonical)
             circle = scale_coords(exon_coordinates, scaled_coords, circle)
 
@@ -854,8 +868,10 @@ def main():
 
         # Plot.
         plot_exons(ax=ax, coordinates=exon_coordinates, colors=colors, height=height, y=ybottom, strand=strand, numbering=args.exon_numbering)
+        plot_coverage_curve(ax=ax, x_vals=x_fill,y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
         plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
         plot_circles(ax=ax, coordinates=circle, y=ybottom, gene_size=gene_length)
+
 
         # Replace special characters with spaces and plot sample name above each subplot.
         name = re.sub(r'[-_|]',' ', name)
