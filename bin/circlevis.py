@@ -666,6 +666,7 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top):
     y_range = y_top - y_middle
     y_vals = y_middle + ((np.array(y_vals)/max(y_vals)) * y_range)
     # ax.plot(x_vals, y_vals, lw=.2, color='k')
+    print(len(x_vals), len(y_vals))
     ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False, linewidth=.5, edgecolor='k' )
 
 
@@ -673,64 +674,83 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
     '''Takes AlignmentFile instance and returns coverage and bases in a dict with position as key'''
     
     try:
-        pileup = bam.pileup(chromosome, int(start), int(stop))
+        coverage = bam.count_coverage(chromosome, start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
 
-    except ValueError:
+    except KeyError:
+
         if 'chr' not in chromosome:
-            pileup = bam.pileup('chr' + chromosome, int(start), int(stop))
+            coverage = bam.count_coverage('chr'+chromosome, start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
         else:
-            pileup = bam.pileup(chromosome.replace('chr',''), int(start), int(stop))
-
-    coverage = defaultdict(list)
-    new_coverage = {}
-    strandswitch = {'+': '-', '-': '+'}
-
-    if strand and strand in strandswitch:
-        if rev:
-            strand = strandswitch[strand]
-        
-        for column in pileup:
-            new_coverage[column.pos] = column.n
-            for read in column.pileups:    
-                if read.alignment.is_read1 and ((strand == '+' and read.alignment.is_reverse) or (strand == '-' and not read.alignment.is_reverse)):       
-                    continue
-                if read.alignment.is_read2 and ((strand == '+' and not read.alignment.is_reverse) or (strand == '-' and read.alignment.is_reverse)):       
-                    continue
-                if not read.is_del and not read.is_refskip:
-                    base = read.alignment.query_sequence[read.query_position]
-                    coverage[column.pos].append(base)
+            coverage = bam.count_coverage(chromosome.replace('chr', ''), start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
+   
     
-    # If sequencing was not strand-specific
-    else:
-        for column in pileup:
-            for read in column.pileups:  
-                if not read.is_del and not read.is_refskip:
-                    base = read.alignment.query_sequence[read.query_position]
-                    coverage[column.pos].append(base)
+    coverage = np.sum(coverage, 0)
+   
+    if average:
+        return np.mean(coverage)
+    
+    return list(range(start, stop)), coverage
+    # try:
+    #     pileup = bam.pileup(chromosome, int(start), int(stop))
 
-    for key in coverage:
-        c = Counter(coverage[key])
-        sum_c = sum(list(c.values()))
-        coverage[key] = (sum_c, c)
+    # except ValueError:
+    #     if 'chr' not in chromosome:
+    #         pileup = bam.pileup('chr' + chromosome, int(start), int(stop))
+    #     else:
+    #         pileup = bam.pileup(chromosome.replace('chr',''), int(start), int(stop))
 
-    if not average:
-        coverage = {i: coverage[i][0] for i in coverage if start <= i <= stop} 
-        y = list(coverage.values())
-        x = list(coverage.keys())
-        zeros = np.zeros(max(x)-min(x) +1)
-        for xi, yi in zip(x, y):
-            zeros[xi - min(x)] =  yi
-        x = range(min(x), max(x)+1)
-        return x, zeros
+    # coverage = defaultdict(list)
+    # new_coverage = {}
+    # strandswitch = {'+': '-', '-': '+'}
 
-    avg = []
-    for i in coverage:
-        avg.append(coverage[i][0])
+    # if strand and strand in strandswitch:
+    #     if rev:
+    #         strand = strandswitch[strand]
+        
+    #     for column in pileup:
+    #         new_coverage[column.pos] = column.n
+    #         for read in column.pileups:    
+    #             if read.alignment.is_read1 and ((strand == '+' and read.alignment.is_reverse) or (strand == '-' and not read.alignment.is_reverse)):       
+    #                 continue
+    #             if read.alignment.is_read2 and ((strand == '+' and not read.alignment.is_reverse) or (strand == '-' and read.alignment.is_reverse)):       
+    #                 continue
+    #             if not read.is_del and not read.is_refskip:
+    #                 base = read.alignment.query_sequence[read.query_position]
+    #                 coverage[column.pos].append(base)
+    
+    # # If sequencing was not strand-specific
+    # else:
+    #     for column in pileup:
+    #         for read in column.pileups:  
+    #             if not read.is_del and not read.is_refskip:
+    #                 base = read.alignment.query_sequence[read.query_position]
+    #                 coverage[column.pos].append(base)
 
-    if len(avg)>0:
-        return sum(avg) / (stop - start + 1)
-    else:
-        return 0
+    # for key in coverage:
+    #     c = Counter(coverage[key])
+    #     sum_c = sum(list(c.values()))
+    #     coverage[key] = (sum_c, c)
+
+    # if not average:
+
+    #     coverage = {i: coverage[i][0] for i in coverage if start <= i <= stop} 
+    #     y = list(coverage.values())
+    #     x = list(coverage.keys())
+    #     zeros = np.zeros(max(x)-min(x) +1)
+    #     for xi, yi in zip(x, y):
+    #         zeros[xi - min(x)] =  yi
+    #     x = range(min(x), max(x)+1)
+    #     return x, zeros
+
+
+    # avg = []
+    # for i in coverage:
+    #     avg.append(coverage[i][0])
+
+    # if len(avg)>0:
+    #     return sum(avg) / (stop - start + 1)
+    # else:
+    #     return 0
 
 
 def fetch(bam, chromosome, upstream, downstream):
@@ -748,10 +768,7 @@ def fetch(bam, chromosome, upstream, downstream):
     return fetched
 
 
-def strand_filter(read, strand=new_strand, rev=rev):
-
-    global strand
-    global rev
+def strand_filter(read, strand=None, rev=False):
 
     if not strand:
         return read
@@ -958,7 +975,6 @@ def main():
 
         # Plot.
         draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)
-        # plot_exons(ax=ax, coordinates=exon_coordinates, colors=colors, height=height, y=ybottom, strand=strand, numbering=args.exon_numbering)
         plot_coverage_curve(ax=ax, x_vals=x_fill,y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
         plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
         plot_circles(ax=ax, coordinates=circle, y=ybottom, gene_size=gene_length)
