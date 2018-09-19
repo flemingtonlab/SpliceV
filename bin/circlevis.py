@@ -125,6 +125,78 @@ def intersect(boxa, boxb, subtract):
 
     return boxb
 
+def draw_exons(ax, exon_coords, cds_coords, y, height, colors):
+
+
+    new = []
+
+    for e in exon_coords:
+        x=0
+        for c in cds_coords:
+            if e[0] < c[0] < e[1]:
+                new.append((e[0],c[0], 'e'))
+                new.append((c[0], e[1], 'c'))
+                x = 1
+                break
+            elif e[0] < c[1] < e[1]:
+                new.append((e[0], c[1], 'c'))
+                new.append((c[1], e[1], 'e'))
+                x = 1
+                break
+                
+        if x == 0:
+            if e in cds_coords:    
+                new.append((e[0],e[1], 'c'))
+            else:
+                new.append((e[0], e[1], 'e'))
+
+    i=0
+    while i < len(new):
+        if new[i][2] == 'e':
+            h = .2 * height
+        else:
+            h = 0
+        vertices, codes = [], []
+        vertices.append((new[i][0], y + h))
+        codes.append(Path.MOVETO)
+        vertices.append((new[i][1], y + h))
+        codes.append(Path.LINETO)
+        if i + 1 < len(new) and new[i + 1][0] == new[i][1]:
+            if new[i+1][2] == 'e':
+                h2 = .2 * height
+            else:
+                h2 = 0
+            vertices.append((new[i + 1][0], y + h2))
+            codes.append(Path.LINETO) 
+            vertices.append((new[i + 1][1], y + h2))
+            codes.append(Path.LINETO)
+            vertices.append((new[i + 1][1], y - h2 + height))
+            codes.append(Path.LINETO)
+            vertices.append((new[i + 1][0], y- h2 + height))
+            codes.append(Path.LINETO)
+            vertices.append((new[i + 1][0], y - h + height))
+            codes.append(Path.LINETO)
+            vertices.append((new[i][0], y - h + height))
+            codes.append(Path.LINETO)
+            vertices.append((new[i][0], y + h))
+            codes.append(Path.CLOSEPOLY)
+            i+=1
+        else:
+            vertices.append((new[i][1], y - h + height))
+            codes.append(Path.LINETO)
+            vertices.append((new[i][0], y - h + height))
+            codes.append(Path.LINETO)
+            vertices.append((new[i][0], y + h))
+            codes.append(Path.CLOSEPOLY)
+
+        i+=1
+
+        p = Path(vertices, codes)
+        c = colors.pop(0)
+        patch = patches.PathPatch(p, facecolor = c, lw=.1, ec='k')
+
+        ax.add_patch(patch)
+
 
 def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=True):
     ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
@@ -299,7 +371,6 @@ def plot_SJ_curves(ax, coordinates, y, numbering=False, fig=None):
             for indexb, boxb in enumerate(boxes):
                 if indexa != indexb:
                     new_boxb = intersect(boxa, boxb, subtract=False)
-                # print(new_boxb.y0)
                     boxes[indexb] = new_boxb
 
         for text, box in zip(texts, boxes):
@@ -336,37 +407,46 @@ def transform(original, scaled, query):
     ''' Transform query to new scale. 
         Adapted from https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio'''
 
-    orig_c = [i for j in original for i in j]
-    scal_c = [i for j in scaled for i in j]
-
-    for i in range(len(orig_c) - 1):
-        left, right = orig_c[i:i+2]
-        if left <= query <= right:
+    original_coordinates = [i for j in original for i in j]
+    scaled_coordinates = [i for j in scaled for i in j]
+    if query > original_coordinates[-2]:
+        return query - (original_coordinates[-2] - scaled_coordinates[-2])
+    for i in range(len(original_coordinates) - 1):
+        old_left, old_right = original_coordinates[i:i+2]
+        if old_left <= query <= old_right:
             break
 
-    if len(scal_c) > i + 2:
-        n_left, n_right = scal_c[i:i+2]
+    if len(scaled_coordinates) > i + 2:
+        new_left, new_right = scaled_coordinates[i:i+2]
+
     else:
-        n_left = scal_c[i]
-        n_right = query
+        new_left = scaled_coordinates[i]
+        new_right = query
 
-    n_range = n_right - n_left
-    o_range = right - left 
-    if o_range == 0:
-        return n_left
+    new_range = new_right - new_left
+    old_range = old_right - old_left 
 
-    return (((query - left) * n_range) / o_range) + n_left
+    if old_range == 0:
+        return new_left
+
+    return (((query - old_left) * new_range) / old_range) + new_left
 
 
 def scale_coords(oldranges, newranges, coords):
     '''Scale junction coordinates to new exon coordinates using scale()'''
 
     newcoords = []
-    for start, stop, counts in coords:
-        newstart = transform(oldranges, newranges, start)
-        newstop = transform(oldranges, newranges, stop)
-        newcoords.append((newstart, newstop, counts))
-    
+    if coords and len(coords[0]) == 3:
+        for start, stop, counts in coords:
+            newstart = transform(oldranges, newranges, start)
+            newstop = transform(oldranges, newranges, stop)
+            newcoords.append((newstart, newstop, counts))
+    else:
+        for start, stop in coords:
+            newstart = transform(oldranges, newranges, start)
+            newstop = transform(oldranges, newranges, stop)
+            newcoords.append((newstart, newstop))
+
     return newcoords
 
 
@@ -473,13 +553,14 @@ def exons(path, gene, transcript=False):
         If transcript is False, searches gtf file for gene name , determines the longest daughter transcript, returns exon coordinates. 
         Otherwise, directly returns transcript specific exon coordinates. '''
 
+    cds_dict = defaultdict(list)
     transcript_dict = defaultdict(list)
 
     # Search by transcript ID or gene name.
     if transcript:
-        prog = re.compile('transcript_id "%s"' % gene)
+        prog = re.compile('transcript_id "%s"' % gene, flags=re.IGNORECASE)
     else:
-        prog = re.compile('gene_name "%s"' % gene)
+        prog = re.compile('gene_name "%s"' % gene, flags=re.IGNORECASE)
 
     Exon = namedtuple('Exon', ['chromosome', 'source', 'feature', 'start', 'stop', 'score', 'strand', 'frame'])
     with open(path) as gtf:
@@ -490,14 +571,16 @@ def exons(path, gene, transcript=False):
                 continue
 
             # Only lines with gene name (ignore case)
-            if prog.search(line, re.IGNORECASE):
+            if prog.search(line):
                 *line, attributes = line.split('\t')
                 exon = Exon(*line)
-                if exon.feature != 'exon':
-                    continue
-                
-                transcript = attributes.split('transcript_id ')[1].split('"')[1]
-                transcript_dict[transcript].append((exon.chromosome, int(exon.start), int(exon.stop), exon.strand))
+                if exon.feature.lower() == 'exon':                
+                    transcript = attributes.split('transcript_id ')[1].split('"')[1]
+                    transcript_dict[transcript].append((exon.chromosome, int(exon.start), int(exon.stop), exon.strand))
+
+                elif exon.feature.lower() == 'cds': 
+                    transcript = attributes.split('transcript_id ')[1].split('"')[1]
+                    cds_dict[transcript].append(((int(exon.start), int(exon.stop))))
 
     if len(transcript_dict) == 0:
         sys.exit("Gene {} not found in gtf file.".format(gene))
@@ -536,8 +619,9 @@ def exons(path, gene, transcript=False):
         strand = strand.pop()
     else:
         sys.exit("Gene {} found on both DNA strands. Please fix GTF file.".format(gene))
-    
-    return chromosome, coordinates, strand
+    cds = cds_dict[longest_transcript]
+    cds.sort(key = lambda x:x[0])
+    return chromosome, coordinates, strand, cds
 
 
 def prep_bam(path):
@@ -581,8 +665,8 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top):
     y_middle = (y_top + y_bottom) / 2
     y_range = y_top - y_middle
     y_vals = y_middle + ((np.array(y_vals)/max(y_vals)) * y_range)
-    ax.plot(x_vals, y_vals, lw=.2, color='k')
-    ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False )
+    # ax.plot(x_vals, y_vals, lw=.2, color='k')
+    ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False, linewidth=.5, edgecolor='k' )
 
 
 def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=True):
@@ -598,7 +682,7 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
             pileup = bam.pileup(chromosome.replace('chr',''), int(start), int(stop))
 
     coverage = defaultdict(list)
-    
+    new_coverage = {}
     strandswitch = {'+': '-', '-': '+'}
 
     if strand and strand in strandswitch:
@@ -606,6 +690,7 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
             strand = strandswitch[strand]
         
         for column in pileup:
+            new_coverage[column.pos] = column.n
             for read in column.pileups:    
                 if read.alignment.is_read1 and ((strand == '+' and read.alignment.is_reverse) or (strand == '-' and not read.alignment.is_reverse)):       
                     continue
@@ -629,11 +714,14 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
         coverage[key] = (sum_c, c)
 
     if not average:
-        coverage = {i: coverage[i][0] for i in coverage} 
+        coverage = {i: coverage[i][0] for i in coverage if start <= i <= stop} 
         y = list(coverage.values())
         x = list(coverage.keys())
-
-        return x, y
+        zeros = np.zeros(max(x)-min(x) +1)
+        for xi, yi in zip(x, y):
+            zeros[xi - min(x)] =  yi
+        x = range(min(x), max(x)+1)
+        return x, zeros
 
     avg = []
     for i in coverage:
@@ -660,25 +748,27 @@ def fetch(bam, chromosome, upstream, downstream):
     return fetched
 
 
-def strand_filter(read, strand=None, rev=False):
+def strand_filter(read, strand=new_strand, rev=rev):
+
+    global strand
+    global rev
 
     if not strand:
-        
-        return 1
+        return read
 
     strand_switch = {'+': '-', '-': '+'}
     if strand not in strand_switch:
-        return 1
+        return read
 
     if rev:
         strand = strand_switch[strand]
 
     if read.is_read1 and ((strand == '+' and read.is_reverse) or (strand == '-' and not read.is_reverse)):       
-        return 0
+        return 
     if read.is_read2 and ((strand == '+' and not read.is_reverse) or (strand == '-' and read.is_reverse)):       
-        return 0
+        return 
     
-    return 1
+    return read
     
 
 def junctions(bam, chromosome, upstream, downstream, min_junctions, strand=None, rev=False):
@@ -738,10 +828,9 @@ def main():
     args = parse()
     
     if args.gene:
-        chromosome, exon_coordinates, strand  = exons(path=args.gtf, gene=args.gene)
+        chromosome, exon_coordinates, strand, cds_coordinates  = exons(path=args.gtf, gene=args.gene)
     else:
-        chromosome, exon_coordinates, strand = exons(path=args.gtf, gene=args.transcript, transcript=True)
-
+        chromosome, exon_coordinates, strand, cds_coordinates = exons(path=args.gtf, gene=args.transcript, transcript=True)
     transcript_start = min(i[0] for i in exon_coordinates)
     transcript_stop = max(i[1] for i in exon_coordinates)
 
@@ -750,6 +839,7 @@ def main():
     if args.intron_scale:
         factor = args.intron_scale
         scaled_coords = scale_introns(exon_coordinates, factor)
+        cds_coordinates = scale_coords(exon_coordinates, scaled_coords, cds_coordinates)
 
     if args.stranded:
         junction_strand = strand
@@ -763,7 +853,6 @@ def main():
         rev = False
         new_strand = None
         junction_strand = None
-
     samples = []
     
     for bampath in args.bam:
@@ -823,9 +912,9 @@ def main():
         coverage = samples[index][3]
 
         if args.normalize:
-            max_coverage = highest
+            max_coverage = highest * 2
         else:
-            max_coverage = max(coverage)
+            max_coverage = max(coverage) * 2
         if max_coverage != 0:
             color = [args.color + (i / max_coverage, ) for i in coverage]
         else:
@@ -868,7 +957,8 @@ def main():
         ax.axes.get_xaxis().set_visible(False)
 
         # Plot.
-        plot_exons(ax=ax, coordinates=exon_coordinates, colors=colors, height=height, y=ybottom, strand=strand, numbering=args.exon_numbering)
+        draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)
+        # plot_exons(ax=ax, coordinates=exon_coordinates, colors=colors, height=height, y=ybottom, strand=strand, numbering=args.exon_numbering)
         plot_coverage_curve(ax=ax, x_vals=x_fill,y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
         plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
         plot_circles(ax=ax, coordinates=circle, y=ybottom, gene_size=gene_length)
