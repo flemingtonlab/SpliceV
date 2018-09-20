@@ -664,10 +664,9 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top):
 
     y_middle = (y_top + y_bottom) / 2
     y_range = y_top - y_middle
-    y_vals = y_middle + ((np.array(y_vals)/max(y_vals)) * y_range)
-    # ax.plot(x_vals, y_vals, lw=.2, color='k')
-    print(len(x_vals), len(y_vals))
-    ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False, linewidth=.5, edgecolor='k' )
+    if np.max(y_vals) > 0:
+        y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
+        ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False, linewidth=.5, edgecolor='k' )
 
 
 def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=True):
@@ -679,16 +678,15 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
     except KeyError:
 
         if 'chr' not in chromosome:
-            coverage = bam.count_coverage('chr'+chromosome, start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
+            coverage = bam.count_coverage('chr' + chromosome, start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
         else:
             coverage = bam.count_coverage(chromosome.replace('chr', ''), start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
    
-    
     coverage = np.sum(coverage, 0)
-   
+
     if average:
         return np.mean(coverage)
-    
+
     return list(range(start, stop)), coverage
     # try:
     #     pileup = bam.pileup(chromosome, int(start), int(stop))
@@ -888,7 +886,6 @@ def main():
         
         coverage=[]
         x_fill, y_fill = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev, average=False)
-        
         for start, stop in exon_coordinates:
             coverage.append(get_coverage(bam, chromosome, start, stop, strand=new_strand, rev=rev, average=True))
             
@@ -911,7 +908,8 @@ def main():
             else:
                 circle = [(i, j, k // args.reduce_backsplice) for i, j, k in circle]
 
-        samples.append((name, canonical, circle, coverage))
+        samples.append((name, canonical, circle, coverage, x_fill, y_fill))
+
     if args.intron_scale:
         exon_coordinates = scaled_coords
 
@@ -944,7 +942,7 @@ def main():
     fig = plt.figure(figsize=(15, 4 * num_plots))
     
     for i in range(len(samples)):
-        name, canonical, circle, _, colors = samples[i]
+        name, canonical, circle, _, x_fill, y_fill, colors = samples[i]
 
         # Center the plot on the canvas
         ax = plt.subplot(num_plots, 1, i+1)
