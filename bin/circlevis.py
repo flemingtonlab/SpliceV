@@ -669,12 +669,12 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
         y_range = y_top - y_middle
     else:
         y_range = y_bottom - y_middle
-    y_range *= .8
+    y_range *= .5
     if np.max(y_vals) > 0:
         y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
         plt.plot(x_vals, y_vals, color='k', linewidth=.2)
-        ax.fill_between(x_vals, y_middle, y_vals, color='0.75', interpolate=False, linewidth=.5, edgecolor='k' )
-
+        ax.fill_between(x_vals, y_middle, y_vals, color='0.75', interpolate=False, linewidth=.2, edgecolor='k' )
+    ax.axhline(lw=.2, color='k', y=y_middle) 
 
 def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=True):
     '''Takes AlignmentFile instance and returns coverage and bases in a dict with position as key'''
@@ -864,7 +864,7 @@ def main():
             else:
                 circle = [(i, j, k // args.reduce_backsplice) for i, j, k in circle]
 
-        samples.append((name, canonical, circle, coverage, x_fill, y_fill, y_fill2))
+        samples.append([name, canonical, circle, coverage, x_fill, y_fill, y_fill2])
 
     if args.intron_scale:
         exon_coordinates = scaled_coords
@@ -890,7 +890,7 @@ def main():
         else:
             color = [args.color + (0, ) for i in coverage] 
         
-        samples[index] += (color, )
+        samples[index] += [color]
 
     if args.normalize:
         highest = 0
