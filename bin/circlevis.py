@@ -633,6 +633,7 @@ def prep_bam(path):
         print("\nNo index found for %s..indexing\n" % path)
         try:
             pysam.index(path)
+            sam = pysam.AlignmentFile(path)
         except:
             print("\nBAM needs to be sorted first..sorting\n")
             pysam.sort("-o", path.replace('bam', 'sorted.bam'), path)
@@ -660,18 +661,28 @@ def prep_bam(path):
     return sam
 
 
-def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top):
+def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
 
     y_middle = (y_top + y_bottom) / 2
-    y_range = y_top - y_middle
+    
+    if direction == 'above':
+        y_range = y_top - y_middle
+    else:
+        y_range = y_bottom - y_middle
+    y_range *= .8
     if np.max(y_vals) > 0:
         y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
-        ax.fill_between(x_vals, y_middle, y_vals, color='0.5', interpolate=False, linewidth=.5, edgecolor='k' )
+        plt.plot(x_vals, y_vals, color='k', linewidth=.2)
+        ax.fill_between(x_vals, y_middle, y_vals, color='0.75', interpolate=False, linewidth=.5, edgecolor='k' )
 
 
 def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=True):
     '''Takes AlignmentFile instance and returns coverage and bases in a dict with position as key'''
-    
+
+    length = stop - start
+    extra = length // 20
+    start -= extra
+    stop += extra
     try:
         coverage = bam.count_coverage(chromosome, start, stop, read_callback=lambda read:strand_filter(read, strand, rev))
 
@@ -688,67 +699,6 @@ def get_coverage(bam, chromosome, start, stop, strand=None, rev=False, average=T
         return np.mean(coverage)
 
     return list(range(start, stop)), coverage
-    # try:
-    #     pileup = bam.pileup(chromosome, int(start), int(stop))
-
-    # except ValueError:
-    #     if 'chr' not in chromosome:
-    #         pileup = bam.pileup('chr' + chromosome, int(start), int(stop))
-    #     else:
-    #         pileup = bam.pileup(chromosome.replace('chr',''), int(start), int(stop))
-
-    # coverage = defaultdict(list)
-    # new_coverage = {}
-    # strandswitch = {'+': '-', '-': '+'}
-
-    # if strand and strand in strandswitch:
-    #     if rev:
-    #         strand = strandswitch[strand]
-        
-    #     for column in pileup:
-    #         new_coverage[column.pos] = column.n
-    #         for read in column.pileups:    
-    #             if read.alignment.is_read1 and ((strand == '+' and read.alignment.is_reverse) or (strand == '-' and not read.alignment.is_reverse)):       
-    #                 continue
-    #             if read.alignment.is_read2 and ((strand == '+' and not read.alignment.is_reverse) or (strand == '-' and read.alignment.is_reverse)):       
-    #                 continue
-    #             if not read.is_del and not read.is_refskip:
-    #                 base = read.alignment.query_sequence[read.query_position]
-    #                 coverage[column.pos].append(base)
-    
-    # # If sequencing was not strand-specific
-    # else:
-    #     for column in pileup:
-    #         for read in column.pileups:  
-    #             if not read.is_del and not read.is_refskip:
-    #                 base = read.alignment.query_sequence[read.query_position]
-    #                 coverage[column.pos].append(base)
-
-    # for key in coverage:
-    #     c = Counter(coverage[key])
-    #     sum_c = sum(list(c.values()))
-    #     coverage[key] = (sum_c, c)
-
-    # if not average:
-
-    #     coverage = {i: coverage[i][0] for i in coverage if start <= i <= stop} 
-    #     y = list(coverage.values())
-    #     x = list(coverage.keys())
-    #     zeros = np.zeros(max(x)-min(x) +1)
-    #     for xi, yi in zip(x, y):
-    #         zeros[xi - min(x)] =  yi
-    #     x = range(min(x), max(x)+1)
-    #     return x, zeros
-
-
-    # avg = []
-    # for i in coverage:
-    #     avg.append(coverage[i][0])
-
-    # if len(avg)>0:
-    #     return sum(avg) / (stop - start + 1)
-    # else:
-    #     return 0
 
 
 def fetch(bam, chromosome, upstream, downstream):
@@ -877,7 +827,7 @@ def main():
         if args.sj:
             canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
         else:
-            canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions=2, strand=new_strand, rev=rev)
+            canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions=min_junctions, strand=new_strand, rev=rev)
         
         if args.bsj:
             circle = junction_file_parse(args.bsj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
@@ -885,7 +835,14 @@ def main():
             circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=2, strand=new_strand, rev=rev)
         
         coverage=[]
+
         x_fill, y_fill = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev, average=False)
+        if rev:
+            rev2 = False
+        else:
+            rev2 = True
+        x_fill2, y_fill2 = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev2, average=False)
+        
         for start, stop in exon_coordinates:
             coverage.append(get_coverage(bam, chromosome, start, stop, strand=new_strand, rev=rev, average=True))
             
@@ -893,7 +850,6 @@ def main():
             x_fill = [transform(exon_coordinates, scaled_coords, i) for i in x_fill]
             canonical = scale_coords(exon_coordinates, scaled_coords, canonical)
             circle = scale_coords(exon_coordinates, scaled_coords, circle)
-
 
         if args.reduce_canonical:
             # Avoid division by 0 or negative number.
@@ -908,7 +864,7 @@ def main():
             else:
                 circle = [(i, j, k // args.reduce_backsplice) for i, j, k in circle]
 
-        samples.append((name, canonical, circle, coverage, x_fill, y_fill))
+        samples.append((name, canonical, circle, coverage, x_fill, y_fill, y_fill2))
 
     if args.intron_scale:
         exon_coordinates = scaled_coords
@@ -917,7 +873,6 @@ def main():
         highest = 0
 
         for index in range(len(samples)): 
-
             coverage = samples[index][3]
             max_coverage = max(coverage)
             if max_coverage > highest:
@@ -937,12 +892,37 @@ def main():
         
         samples[index] += (color, )
 
+    if args.normalize:
+        highest = 0
+
+        for index in range(len(samples)): 
+            pos_coverage = samples[index][5]
+            neg_coverage = samples[index][6]
+            max_coverage = max(max(pos_coverage), max(neg_coverage))
+            if max_coverage > highest:
+                highest = max_coverage
+
+    for index in range(len(samples)):
+        pos_coverage = samples[index][5]
+        neg_coverage = samples[index][6]
+        if args.normalize:
+            max_coverage = highest
+        else:
+            max_coverage = max(max(pos_coverage), max(neg_coverage))
+        if max_coverage != 0:
+            pos_coverage = [i / max_coverage for i in pos_coverage]
+            neg_coverage = [i / max_coverage for i in neg_coverage]
+
+        
+        samples[index][5] = pos_coverage
+        samples[index][6] = neg_coverage
+
     # Plot for each sample
     num_plots = len(args.bam)
     fig = plt.figure(figsize=(15, 4 * num_plots))
     
     for i in range(len(samples)):
-        name, canonical, circle, _, x_fill, y_fill, colors = samples[i]
+        name, canonical, circle, _, x_fill, y_fill, y_fill2, colors = samples[i]
 
         # Center the plot on the canvas
         ax = plt.subplot(num_plots, 1, i+1)
@@ -973,9 +953,15 @@ def main():
 
         # Plot.
         draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)
-        plot_coverage_curve(ax=ax, x_vals=x_fill,y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
-        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
-        plot_circles(ax=ax, coordinates=circle, y=ybottom, gene_size=gene_length)
+        if strand == '+':
+            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
+            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill2, y_bottom=ybottom, y_top=ytop, direction='below')
+        else:
+            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop, direction='below')
+            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill2, y_bottom=ybottom, y_top=ytop)
+        
+        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - .2*height)
+        plot_circles(ax=ax, coordinates=circle, y=ybottom + .2*height, gene_size=gene_length)
 
 
         # Replace special characters with spaces and plot sample name above each subplot.
