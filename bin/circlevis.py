@@ -581,7 +581,7 @@ def exons(path, gene, transcript=False):
                 elif exon.feature.lower() == 'cds': 
                     transcript = attributes.split('transcript_id ')[1].split('"')[1]
                     cds_dict[transcript].append(((int(exon.start), int(exon.stop))))
-
+                    
     if len(transcript_dict) == 0:
         sys.exit("Gene {} not found in gtf file.".format(gene))
     
@@ -621,6 +621,7 @@ def exons(path, gene, transcript=False):
         sys.exit("Gene {} found on both DNA strands. Please fix GTF file.".format(gene))
     cds = cds_dict[longest_transcript]
     cds.sort(key = lambda x:x[0])
+    
     return chromosome, coordinates, strand, cds
 
 
@@ -669,7 +670,7 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
         y_range = y_top - y_middle
     else:
         y_range = y_bottom - y_middle
-    y_range *= .5
+    y_range *= .6
     if np.max(y_vals) > 0:
         y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
         plt.plot(x_vals, y_vals, color='k', linewidth=.2)
@@ -796,6 +797,7 @@ def main():
         chromosome, exon_coordinates, strand, cds_coordinates  = exons(path=args.gtf, gene=args.gene)
     else:
         chromosome, exon_coordinates, strand, cds_coordinates = exons(path=args.gtf, gene=args.transcript, transcript=True)
+    
     transcript_start = min(i[0] for i in exon_coordinates)
     transcript_stop = max(i[1] for i in exon_coordinates)
 
@@ -812,12 +814,14 @@ def main():
             rev = True
         else:
             rev = False
+
         new_strand = strand
 
     else:
         rev = False
         new_strand = None
         junction_strand = None
+
     samples = []
     
     for bampath in args.bam:
@@ -837,11 +841,6 @@ def main():
         coverage=[]
 
         x_fill, y_fill = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev, average=False)
-        if rev:
-            rev2 = False
-        else:
-            rev2 = True
-        x_fill2, y_fill2 = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev2, average=False)
         
         for start, stop in exon_coordinates:
             coverage.append(get_coverage(bam, chromosome, start, stop, strand=new_strand, rev=rev, average=True))
@@ -864,7 +863,7 @@ def main():
             else:
                 circle = [(i, j, k // args.reduce_backsplice) for i, j, k in circle]
 
-        samples.append([name, canonical, circle, coverage, x_fill, y_fill, y_fill2])
+        samples.append([name, canonical, circle, coverage, x_fill, y_fill])
 
     if args.intron_scale:
         exon_coordinates = scaled_coords
@@ -894,35 +893,29 @@ def main():
 
     if args.normalize:
         highest = 0
-
         for index in range(len(samples)): 
-            pos_coverage = samples[index][5]
-            neg_coverage = samples[index][6]
-            max_coverage = max(max(pos_coverage), max(neg_coverage))
+            coverage = samples[index][5]
+            max_coverage = max(coverage)
             if max_coverage > highest:
                 highest = max_coverage
 
     for index in range(len(samples)):
-        pos_coverage = samples[index][5]
-        neg_coverage = samples[index][6]
+        coverage = samples[index][5]
         if args.normalize:
             max_coverage = highest
         else:
-            max_coverage = max(max(pos_coverage), max(neg_coverage))
+            max_coverage = max(coverage)
         if max_coverage != 0:
-            pos_coverage = [i / max_coverage for i in pos_coverage]
-            neg_coverage = [i / max_coverage for i in neg_coverage]
-
+            coverage = [i / max_coverage for i in coverage]
         
-        samples[index][5] = pos_coverage
-        samples[index][6] = neg_coverage
+        samples[index][5] = coverage
 
     # Plot for each sample
     num_plots = len(args.bam)
     fig = plt.figure(figsize=(15, 4 * num_plots))
     
     for i in range(len(samples)):
-        name, canonical, circle, _, x_fill, y_fill, y_fill2, colors = samples[i]
+        name, canonical, circle, _, x_fill, y_fill, colors = samples[i]
 
         # Center the plot on the canvas
         ax = plt.subplot(num_plots, 1, i+1)
@@ -952,16 +945,10 @@ def main():
         ax.axes.get_xaxis().set_visible(False)
 
         # Plot.
-        draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)
-        if strand == '+':
-            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
-            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill2, y_bottom=ybottom, y_top=ytop, direction='below')
-        else:
-            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop, direction='below')
-            plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill2, y_bottom=ybottom, y_top=ytop)
-        
-        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - .2*height)
-        plot_circles(ax=ax, coordinates=circle, y=ybottom + .2*height, gene_size=gene_length)
+        draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)     
+        plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
+        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - height*0.2)
+        plot_circles(ax=ax, coordinates=circle, y=ybottom + height *0.2, gene_size=gene_length)
 
 
         # Replace special characters with spaces and plot sample name above each subplot.
