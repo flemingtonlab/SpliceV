@@ -557,11 +557,11 @@ def plot_bp(ax, positions, y, color):
 
     xmin, xmax = ax.get_xlim()
     ax_len = xmax - xmin
-    patch_width = ax_len / 100
-    patch_height = 100 / ax_len
+    patch_width = ax_len / 200
+    patch_height = 20 / ax_len
 
     for position in positions:
-        ellipse = patches.Ellipse((position, y), patch_width, patch_height, color=color, alpha=.3)
+        ellipse = patches.Ellipse((position, y), patch_width, patch_height, facecolor=color, edgecolor='k',linewidth=.5, alpha=.4)
         ax.add_patch(ellipse)
 
 
@@ -688,7 +688,7 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
         y_range = y_top - y_middle
     else:
         y_range = y_bottom - y_middle
-    y_range *= 1
+    y_range *= .6
     if np.max(y_vals) > 0:
         y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
         plt.plot(x_vals, y_vals, color='k', linewidth=.2)
@@ -940,6 +940,20 @@ def main():
         ax = plt.subplot(num_plots, 1, i+1)
         ybottom = height = 0.5
         ytop = ybottom + height
+        
+        if args.rnabp:
+            if not args.fa:
+                continue
+            fasta_path = args.fa
+            sequence = read_fasta(fasta_path, chromosome, transcript_start, transcript_stop, strand)
+            print(strand)
+            for bp in args.rnabp:
+                bp_position_list = bp_positions(bp, sequence, transcript_start)
+            
+                if args.intron_scale:
+                    bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]
+                
+                plot_bp(ax, bp_position_list, ybottom, 'blue')
 
         # Calculated again here in case user requests intron scaling.
         transcript_start = min([int(i[0]) for i in exon_coordinates]) 
@@ -968,20 +982,7 @@ def main():
         plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
         plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - height*0.2)
         plot_circles(ax=ax, coordinates=circle, y=ybottom + height *0.2, gene_size=gene_length)
-        
-        if args.rnabp:
-            if not args.fa:
-                continue
-            fasta_path = args.fa
-            sequence = read_fasta(fasta_path, chromosome, start, stop, strand)
 
-            for bp in args.rnabp:
-                bp_position_list = bp_positions(bp, sequence, start)
-            
-                if args.intron_scale:
-                    bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]
-                
-                plot_bp(ax, bp_position_list, ybottom, 'blue')
 
         # Replace special characters with spaces and plot sample name above each subplot.
         name = re.sub(r'[-_|]',' ', name)

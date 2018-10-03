@@ -37,6 +37,9 @@ with open('RNABP.tsv') as infile:
 def bp_positions(query, seq, start):
 
     positions = []
+    if query not in rnabp:
+        print("%s not found" %query)
+        return []
     searchstring = ''.join([regex_d[i] for i in rnabp[query]])
     for i in re.finditer(searchstring, seq):
         mid = sum(i.span()) / 2
