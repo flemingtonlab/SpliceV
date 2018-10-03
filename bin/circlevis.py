@@ -15,26 +15,28 @@ matplotlib.use('Agg')
 from matplotlib.path import Path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-
+from fa import *
 
 def parse():
    
     parser = argparse.ArgumentParser(description='Plot transcript')
-    parser.add_argument("-bsj", nargs='*', help="Path to backsplice junction bed-formatted files (listed in the same order as the input bam files)", metavar='')
-    parser.add_argument("-stranded", metavar='', help="If strand-specific sequencing, indicate 'forward' if upstream reads are forward strand, otherwise indicate 'reverse' (True-Seq is 'reverse').")
-    parser.add_argument("-sj", nargs='*', help="Path to canonical splice junction bed-formatted files (listed in the same order as the input bam files)", metavar='')
-    parser.add_argument("-is", "--intron-scale", type=float, help="The factor by which intron white space should be reduced", metavar='')
-    parser.add_argument("-b", "--bam", nargs='*', required=True, type=str, help="Path to each bam file", metavar='')
-    parser.add_argument("-c", "--color", default="#C21807", type=str, help="Exon color. Hex colors (i.e. \"\#4286f4\". For hex, an escape \"\\\" must precede the argument), RGB (i.e. 211,19,23) or names (i.e. \"red\")", metavar='')
-    parser.add_argument("-t", "--transcript",  type=str, help='Name of transcript to plot', metavar='')
-    parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene', metavar='')
-    parser.add_argument("-f", "--filter", default=0, type=int, metavar='', help='Filter out sj and circles that have fewer than this number of counts.')
+    parser.add_argument("-bsj", nargs='*', help="Path to backsplice junction bed-formatted files (listed in the same order as the input bam files)")
+    parser.add_argument("-stranded", help="If strand-specific sequencing, indicate 'forward' if upstream reads are forward strand, otherwise indicate 'reverse' (True-Seq is 'reverse').")
+    parser.add_argument("-sj", nargs='*', help="Path to canonical splice junction bed-formatted files (listed in the same order as the input bam files)" )
+    parser.add_argument("-is", "--intron-scale", type=float, help="The factor by which intron white space should be reduced")
+    parser.add_argument("-b", "--bam", nargs='*', required=True, type=str, help="Path to each bam file")
+    parser.add_argument("-c", "--color", default="#C21807", type=str, help="Exon color. Hex colors (i.e. \"\#4286f4\". For hex, an escape \"\\\" must precede the argument), RGB (i.e. 211,19,23) or names (i.e. \"red\")")
+    parser.add_argument("-t", "--transcript",  type=str, help='Name of transcript to plot')
+    parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene')
+    parser.add_argument("-f", "--filter", default=0, type=int, help='Filter out sj and circles that have fewer than this number of counts.')
     parser.add_argument("-n", "--normalize", action='store_true', help='Normalize coverage between samples')
-    parser.add_argument("-rc", "--reduce_canonical", type=float, help='Factor by which to reduce canonical curves', metavar='')
-    parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves', metavar='')
+    parser.add_argument("-rc", "--reduce_canonical", type=float, help='Factor by which to reduce canonical curves')
+    parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves')
     parser.add_argument("-ro", "--repress_open", action='store_true', help='Do not open plot in browser (only save it)')
     parser.add_argument("-en", "--exon_numbering", action='store_true', help='Label exons')
-    parser.add_argument("-gtf", required=True, help="Path to gtf file", metavar='')
+    parser.add_argument("-gtf", required=True, help="Path to gtf file")
+    parser.add_argument('-rnabp', nargs='*', help="List of RNABPs to plot.")
+    parser.add_argument("-fa", help="Path to fasta file")
     args = parser.parse_args()
 
     # Check GTF, BAM, SJ, and BSJ paths.
@@ -528,7 +530,7 @@ def add_ax(num_plots, n, coordinates, strand, numbering, samples, sample_ind):
     ax.set_title(name)
 
 
-def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None):
+def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None, min_junctions=0):
 
     junctions = []
     with open(bed_path, "r") as input_file:
@@ -536,6 +538,9 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None)
             if line.startswith(chromosome):
                 line = line.strip().split()
                 _, start, stop, bed_strand, counts = line[:5]
+                counts = int(counts)
+                if counts <= min_junctions:
+                    continue
                 start = int(start) + 1  # Bed format is 0 indexed
                 stop = int(stop) 
                 if start > stop:    
@@ -543,11 +548,24 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None)
                 if not (upstream <= start <= downstream and upstream <= stop <= downstream):
                     continue
                 if strand and strand == bed_strand:
-                    junctions.append((start, stop, int(counts)))
+                    junctions.append((start, stop, counts))
 
     return junctions
 
-        
+    
+def plot_bp(ax, positions, y, color):
+
+    xmin, xmax = ax.get_xlim()
+    ax_len = xmax - xmin
+    patch_width = ax_len / 100
+    patch_height = 100 / ax_len
+
+    for position in positions:
+        ellipse = patches.Ellipse((position, y), patch_width, patch_height, color=color, alpha=.3)
+        ax.add_patch(ellipse)
+
+
+
 def exons(path, gene, transcript=False):
     '''Given a gene or transcript, returns exon coordinates from gtf file -> (chromosome, 5prime coord, 3prime coord, strand) for each exon
         If transcript is False, searches gtf file for gene name , determines the longest daughter transcript, returns exon coordinates. 
@@ -670,7 +688,7 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
         y_range = y_top - y_middle
     else:
         y_range = y_bottom - y_middle
-    y_range *= .6
+    y_range *= 1
     if np.max(y_vals) > 0:
         y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
         plt.plot(x_vals, y_vals, color='k', linewidth=.2)
@@ -829,14 +847,14 @@ def main():
         bam = prep_bam(bampath)
         
         if args.sj:
-            canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
+            canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand,min_junctions=min_junctions)
         else:
             canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions=min_junctions, strand=new_strand, rev=rev)
         
         if args.bsj:
-            circle = junction_file_parse(args.bsj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand)
+            circle = junction_file_parse(args.bsj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand,min_junctions=min_junctions)
         else:
-            circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=2, strand=new_strand, rev=rev)
+            circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=min_junctions, strand=new_strand, rev=rev)
         
         coverage=[]
 
@@ -910,6 +928,7 @@ def main():
         
         samples[index][5] = coverage
 
+
     # Plot for each sample
     num_plots = len(args.bam)
     fig = plt.figure(figsize=(15, 4 * num_plots))
@@ -949,7 +968,20 @@ def main():
         plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
         plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - height*0.2)
         plot_circles(ax=ax, coordinates=circle, y=ybottom + height *0.2, gene_size=gene_length)
+        
+        if args.rnabp:
+            if not args.fa:
+                continue
+            fasta_path = args.fa
+            sequence = read_fasta(fasta_path, chromosome, start, stop, strand)
 
+            for bp in args.rnabp:
+                bp_position_list = bp_positions(bp, sequence, start)
+            
+                if args.intron_scale:
+                    bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]
+                
+                plot_bp(ax, bp_position_list, ybottom, 'blue')
 
         # Replace special characters with spaces and plot sample name above each subplot.
         name = re.sub(r'[-_|]',' ', name)
@@ -976,4 +1008,5 @@ def main():
 
     if not args.repress_open:
         webbrowser.open('file://' + os.path.realpath("%s.html" % title))
-main()
+if __name__ == '__main__':
+    main()
