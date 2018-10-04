@@ -553,13 +553,14 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None,
     return junctions
 
     
-def plot_bp(ax, positions, y, color):
+def plot_bp(ax, positions, y, color, transcript_length):
 
-    xmin, xmax = ax.get_xlim()
-    ax_len = xmax - xmin
-    patch_width = ax_len / 200
-    patch_height = 20 / ax_len
 
+    ax_len = transcript_length
+    patch_width = ax_len / 500
+    patch_height = 20000 / ax_len
+    print(patch_height)
+    print(patch_width)
     for position in positions:
         ellipse = patches.Ellipse((position, y), patch_width, patch_height, facecolor=color, edgecolor='k',linewidth=.5, alpha=.4)
         ax.add_patch(ellipse)
@@ -818,7 +819,7 @@ def main():
     
     transcript_start = min(i[0] for i in exon_coordinates)
     transcript_stop = max(i[1] for i in exon_coordinates)
-
+    transcript_len = transcript_stop - transcript_start
     min_junctions = args.filter
 
     if args.intron_scale:
@@ -953,7 +954,7 @@ def main():
                 if args.intron_scale:
                     bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]
                 
-                plot_bp(ax, bp_position_list, ybottom, 'blue')
+                plot_bp(ax, bp_position_list, ybottom, 'blue', transcript_len)
 
         # Calculated again here in case user requests intron scaling.
         transcript_start = min([int(i[0]) for i in exon_coordinates]) 
@@ -972,7 +973,6 @@ def main():
         ymax = ytop + y_adjustment
         ax.set_xlim([xmin, xmax])
         ax.set_ylim([ymin, ymax])
-
         # Turn off axis labeling.
         ax.axes.get_yaxis().set_visible(False)
         ax.axes.get_xaxis().set_visible(False)
@@ -980,8 +980,8 @@ def main():
         # Plot.
         draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)     
         plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
-        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - height*0.2)
-        plot_circles(ax=ax, coordinates=circle, y=ybottom + height *0.2, gene_size=gene_length)
+        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop) #- height*0.2)
+        plot_circles(ax=ax, coordinates=circle, gene_size=gene_length,y=ybottom)# + height *0.2)
 
 
         # Replace special characters with spaces and plot sample name above each subplot.
