@@ -1,7 +1,7 @@
 # spliceV #
 Visualize coverage, canonical, and backsplice junctions.
 
-[[https://github.com/flemingtonlab/spliceV/blob/master/example/example.png]]
+![Example plot](https://github.com/flemingtonlab/spliceV/blob/master/example/example.png)
 
 
 ## Requirements ##
