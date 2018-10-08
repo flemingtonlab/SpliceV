@@ -37,6 +37,8 @@ def parse():
     parser.add_argument("-gtf", required=True, help="Path to gtf file")
     parser.add_argument('-rnabp', nargs='*', help="List of RNABPs to plot.")
     parser.add_argument("-fa", help="Path to fasta file")
+    parser.add_argument('-format', help="Output image format ('SVG', 'PDF', 'PNG', 'JPG', 'TIFF')", default='PNG')
+    parser.add_argument("-alu", help="Path to Alu bed file")
     args = parser.parse_args()
 
     # Check GTF, BAM, SJ, and BSJ paths.
@@ -552,19 +554,46 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None,
 
     return junctions
 
-    
+def alu_file_parse(bed_path, chromosome, upstream, downstream):
+
+    junctions = []
+    with open(bed_path, "r") as input_file:
+        for line in input_file:
+            if line.startswith(chromosome):
+                line = line.strip().split()
+                _, start, stop, bed_strand = line[:4]
+
+                start = int(start) + 1  # Bed format is 0 indexed
+                stop = int(stop) 
+                if start > stop:    
+                    start, stop = stop, start
+                if not (upstream <= start <= downstream and upstream <= stop <= downstream):
+                    continue
+
+                junctions.append((start, stop, bed_strand))
+                    
+    return junctions
+
+
 def plot_bp(ax, positions, y, color, transcript_length):
 
-
+   
     ax_len = transcript_length
-    patch_width = ax_len / 500
-    patch_height = 20000 / ax_len
-    print(patch_height)
-    print(patch_width)
-    for position in positions:
-        ellipse = patches.Ellipse((position, y), patch_width, patch_height, facecolor=color, edgecolor='k',linewidth=.5, alpha=.4)
-        ax.add_patch(ellipse)
+    h = 9 /ax_len
 
+    patch_width = ax_len / 200
+    # patch_height = 1900 / ax_len
+    patch_height = h * patch_width 
+
+    for position in positions:
+        if not color:
+            ellipse = patches.Ellipse((position, y), patch_width, patch_height,  alpha=.7)
+        else:
+            ellipse = patches.Ellipse((position, y), patch_width, patch_height, facecolor=color,  alpha=.4)
+
+        ax.add_patch(ellipse)
+        ellipse2 = patches.Ellipse((position, y), patch_width, patch_height, fill=False, edgecolor='k',linewidth=.3)
+        ax.add_patch(ellipse2)
 
 
 def exons(path, gene, transcript=False):
@@ -660,6 +689,7 @@ def prep_bam(path):
             print("\nIndexing..\n")
             pysam.index(path)
             print("Done")
+
     except AttributeError:
         print("\nSAM needs to be converted to BAM..converting\n")
         pysam.view('-bho', path.replace('sam', 'bam'), path)
@@ -689,7 +719,9 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
         y_range = y_top - y_middle
     else:
         y_range = y_bottom - y_middle
-    y_range *= .6
+    y_range *= 1
+    # for i,j in zip(x_vals, y_vals):
+    #     print("%i: %i"%(i,j))
     if np.max(y_vals) > 0:
         y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
         plt.plot(x_vals, y_vals, color='k', linewidth=.2)
@@ -858,7 +890,7 @@ def main():
             circle = circles(bam, chromosome, transcript_start, transcript_stop, min_overhang=10, min_junctions=min_junctions, strand=new_strand, rev=rev)
         
         coverage=[]
-
+        
         x_fill, y_fill = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev, average=False)
         
         for start, stop in exon_coordinates:
@@ -932,7 +964,7 @@ def main():
 
     # Plot for each sample
     num_plots = len(args.bam)
-    fig = plt.figure(figsize=(15, 4 * num_plots))
+    fig = plt.figure(figsize=(15, 4 * num_plots), dpi = 300)
     
     for i in range(len(samples)):
         name, canonical, circle, _, x_fill, y_fill, colors = samples[i]
@@ -942,19 +974,38 @@ def main():
         ybottom = height = 0.5
         ytop = ybottom + height
         
+        if args.alu:
+            alus = alu_file_parse(args.alu, chromosome, transcript_start, transcript_stop)
+            plot_coords_right, plot_coords_left = [], []
+            for alu_start, alu_stop, alu_strand in alus:
+                mid_point = (alu_start + alu_stop) / 2
+                if alu_strand == '+':
+                    plot_coords_right.append(mid_point)
+                else:
+                    plot_coords_left.append(mid_point)
+
+            ax.plot(plot_coords_left, [-0.5]*len(plot_coords_left), 'k<',ms=5)
+            ax.plot(plot_coords_right, [-.5] *len(plot_coords_right), 'k>', ms=5)
+
         if args.rnabp:
             if not args.fa:
                 continue
             fasta_path = args.fa
+            
             sequence = read_fasta(fasta_path, chromosome, transcript_start, transcript_stop, strand)
-            print(strand)
+            
+            y_bp_adjust = 0.49
+            cmap = plt.get_cmap('Set1').colors
+            color_ind = 4
+            
             for bp in args.rnabp:
                 bp_position_list = bp_positions(bp, sequence, transcript_start)
             
                 if args.intron_scale:
-                    bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]
-                
-                plot_bp(ax, bp_position_list, ybottom, 'blue', transcript_len)
+                    bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]    
+                plot_bp(ax, bp_position_list, y_bp_adjust * (ybottom + ytop), cmap[color_ind], transcript_len)
+                y_bp_adjust -= .01
+                color_ind = (color_ind + 1) % 9
 
         # Calculated again here in case user requests intron scaling.
         transcript_start = min([int(i[0]) for i in exon_coordinates]) 
@@ -973,6 +1024,7 @@ def main():
         ymax = ytop + y_adjustment
         ax.set_xlim([xmin, xmax])
         ax.set_ylim([ymin, ymax])
+
         # Turn off axis labeling.
         ax.axes.get_yaxis().set_visible(False)
         ax.axes.get_xaxis().set_visible(False)
@@ -993,21 +1045,23 @@ def main():
         title = args.gene
     else:
         title = args.transcript
-
+    outformat = args.format
     plt.tight_layout()
-    plt.savefig("%s.svg" % title)
+    plt.savefig("{title}.{extension}".format(title=title, extension=outformat))
     html_str = '''
     <html>
     <body>
-    <img src="%s.svg" alt="Cannot find %s.svg. Make sure the html file and svg file are in the same directory">
+    <img src="{title}.{extension}" alt="Loading {title}.{extension}..">
     </body>
     </html>
     '''
 
     with open("%s.html" % title, "w") as html:
-        html.write(html_str % (title, title))
+        html.write(html_str.format(title=title, extension=outformat))
 
     if not args.repress_open:
         webbrowser.open('file://' + os.path.realpath("%s.html" % title))
+
+
 if __name__ == '__main__':
     main()
