@@ -5,7 +5,6 @@ import sqlite3
 import matplotlib
 from numpy import arange, linspace, sqrt, random
 import numpy as np
-import argparse
 from collections import defaultdict, namedtuple, Counter
 import webbrowser
 import re
@@ -16,63 +15,7 @@ from matplotlib.path import Path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from fa import *
-
-def parse():
-   
-    parser = argparse.ArgumentParser(description='Plot transcript')
-    parser.add_argument("-bsj", nargs='*', help="Path to backsplice junction bed-formatted files (listed in the same order as the input bam files)")
-    parser.add_argument("-stranded", help="If strand-specific sequencing, indicate 'forward' if upstream reads are forward strand, otherwise indicate 'reverse' (True-Seq is 'reverse').")
-    parser.add_argument("-sj", nargs='*', help="Path to canonical splice junction bed-formatted files (listed in the same order as the input bam files)" )
-    parser.add_argument("-is", "--intron-scale", type=float, help="The factor by which intron white space should be reduced")
-    parser.add_argument("-b", "--bam", nargs='*', required=True, type=str, help="Path to each bam file")
-    parser.add_argument("-c", "--color", default="#C21807", type=str, help="Exon color. Hex colors (i.e. \"\#4286f4\". For hex, an escape \"\\\" must precede the argument), RGB (i.e. 211,19,23) or names (i.e. \"red\")")
-    parser.add_argument("-t", "--transcript",  type=str, help='Name of transcript to plot')
-    parser.add_argument("-g", "--gene", type=str, help='Name of gene to plot (overrides "-t" flag). Will plot the longest transcript derived from that gene')
-    parser.add_argument("-f", "--filter", default=0, type=int, help='Filter out sj and circles that have fewer than this number of counts.')
-    parser.add_argument("-n", "--normalize", action='store_true', help='Normalize coverage between samples')
-    parser.add_argument("-rc", "--reduce_canonical", type=float, help='Factor by which to reduce canonical curves')
-    parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves')
-    parser.add_argument("-ro", "--repress_open", action='store_true', help='Do not open plot in browser (only save it)')
-    parser.add_argument("-en", "--exon_numbering", action='store_true', help='Label exons')
-    parser.add_argument("-gtf", required=True, help="Path to gtf file")
-    parser.add_argument('-rnabp', nargs='*', help="List of RNABPs to plot.")
-    parser.add_argument("-fa", help="Path to fasta file")
-    parser.add_argument('-format', help="Output image format ('SVG', 'PDF', 'PNG', 'JPG', 'TIFF')", default='PNG')
-    parser.add_argument("-alu", help="Path to Alu bed file")
-    args = parser.parse_args()
-
-    # Check GTF, BAM, SJ, and BSJ paths.
-    if not os.path.exists(args.gtf):
-        sys.exit("GTF: {} was not found".format(args.gtf))
-
-    for path in args.bam: 
-        if not os.path.exists(path):
-            sys.exit("BAM: {} was not found".format(path))
-
-    if args.sj:
-        for path in args.sj: 
-            if not os.path.exists(path):
-                sys.exit("Splice junction file {} was not found.\n If you want to obtain splice junction reads from the input bam files, don't specify a splice junction file.".format(path))
-    
-    if args.bsj:
-        for path in args.bsj: 
-            if not os.path.exists(path):
-                sys.exit("Backsplice junction file {} was not found.\n If you want to obtain backsplice junction reads from the input bam files, don't specify a backsplice junction file".format(path))
-
-    if not (args.gene or args.transcript): 
-        sys.exit('Either a gene or a transcript must be specified. (ex. "-t ENST00000390665" or "-g EGFR")')    
-
-    #  Color: if not in rgb format already (i.e. 123,11,0)
-    if ',' in args.color:     
-        color = list(map(int, args.color.split(',')))
-        if len(color) != 3:
-            args.color = to_rgb(args.color)
-        else:  
-            args.color = tuple([c / 255 for c in color])  # Matplotlib requires rgb values to be between 0 and 1 (rather than 0-255)
-    else:
-        args.color = to_rgb(args.color)
-    
-    return args
+from cl import parse 
 
 
 def calc_bez_max(p0, p1, p2, p3=None, t=0.5, quadratic=False):
@@ -88,46 +31,6 @@ def calc_bez_max(p0, p1, p2, p3=None, t=0.5, quadratic=False):
 
     return x, y
 
-
-# To adjust text if collusion occurs.
-class Box:
-
-    def __init__(self, x0, x1, y0, y1):
-        self.x0 = x0
-        self.x1 = x1
-        self.y0 = y0
-        self.y1 = y1
-
-
-def intersect(boxa, boxb, subtract):
-
-    xextra = (boxa.x1 - boxa.x0)/4
-    yextra = (boxa.y1 - boxa.y0)/4
-    if boxa.x0 -xextra<= boxb.x0 <= boxa.x1+xextra or boxa.x0-xextra <= boxb.x1 <= boxa.x1+xextra:
-        
-        if boxa.y0-yextra <= boxb.y0 <= boxa.y1+yextra or boxa.y0-yextra <=boxb.y1<=boxa.y1+yextra:
-            if not subtract:
-                boxb.y0 += .02
-                boxb.y1 += .02
-
-            else:
-                boxb.y0 -= .02
-                boxb.y1 -= .02
-
-            if random.randint(2) == 1:
-                boxb.x0 += xextra/10
-                boxb.x1 += xextra/10
-            else:
-                boxb.x0 -= xextra/10
-                boxb.x1 -= xextra/10
-
-            return intersect(boxa, boxb, subtract)
-    
-    ax = plt.gca()
-    ymax = ax.get_ylim()[1]
-    plt.ylim([plt.ylim()[0], max([ymax, boxb.y1])])
-
-    return boxb
 
 def draw_exons(ax, exon_coords, cds_coords, y, height, colors):
 
@@ -203,9 +106,12 @@ def draw_exons(ax, exon_coords, cds_coords, y, height, colors):
 
 
 def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=True):
-    ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
-        "bezier_offset" controls the depth of the circle junctions on the plot.'''
 
+    ''' 
+    Takes a start and a stop coordinate and generates a bezier curve underneath 
+    exons (for circle junctions). "bezier_offset" controls the depth of the circle 
+    junctions on the plot.
+    '''
 
     ylim = ax.get_ylim()
     space = ylim[1] - ylim[0]
@@ -240,12 +146,14 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=T
 
 
 def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
-    ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
-        "bezier_offset" controls the depth of the circle junctions on the plot. '''
+    '''
+    Takes a start and a stop coordinate and generates a bezier curve underneath
+    exons (for circle junctions). "bezier_offset" controls the depth of the circle
+    junctions on the plot. 
+    '''
 
     xlim  = ax.get_xlim()
     xspace = xlim[1] -xlim[0]
-
     length = sqrt(abs((stop - start))/ xspace)    
     
     Point = namedtuple('Point', ['x', 'y'])
@@ -253,6 +161,7 @@ def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
     p1 = Point(start + .2 * (stop-start), y  + (length*bezier_offset) + adjust)
     p2 = Point(stop - .2 * (stop-start), y  + (length*bezier_offset) + adjust)
     p3 = Point(stop, y)
+
     if not plot:
         return p0,p1,p2,p3
 
@@ -276,7 +185,10 @@ def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
 
 
 def plot_exons(ax, coordinates, y, height, strand, colors, numbering=False):
-    '''Takes coordinates and coverage and plots exons in color with (lack of) alpha value representing relative coverage of an exon.'''
+    '''
+    Takes coordinates and coverage and plots exons in color with (lack of) alpha value
+    representing relative coverage of an exon.
+    '''
 
     exon_nums = list(range(1, len(coordinates) + 1))
     index = 0
@@ -309,9 +221,11 @@ def plot_exons(ax, coordinates, y, height, strand, colors, numbering=False):
 
 
 def plot_circles(ax, coordinates, y, gene_size, numbering=False, fig=None):
-    '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
+    '''
+    Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves 
+    using draw_backsplice()
+    '''
     
-    texts, boxes = [], []
     for start, stop, counts in coordinates:
         if counts != 0:
             step = 1.0 /counts
@@ -319,70 +233,18 @@ def plot_circles(ax, coordinates, y, gene_size, numbering=False, fig=None):
             for num in arange(0.0, factor, factor * step):
                 draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size)
 
-            if numbering:
-                p0, p1, p2, p3 = draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size, plot=False)
-                x_mid, y_mid = calc_bez_max(p0, p1, p2, p3)
-                text = plt.annotate(str(counts), (x_mid, y_mid), ha='center', va='top', alpha=.2, fontsize=8, xytext=(x_mid, y_mid-.3), arrowprops={'arrowstyle':'-','alpha':.05, 'lw':1})
-                texts.append(text)
-                plt.draw()
-                r = fig.canvas.get_renderer()
-    
-    if numbering:
-        for text in texts:
-            extent = text.get_window_extent(r).transformed(ax.transData.inverted())
-            box = Box(extent.xmin, extent.xmax, extent.ymin, extent.ymax)
-            boxes.append(box)
-
-        for indexa, boxa in enumerate(boxes):
-            for indexb, boxb in enumerate(boxes):
-                if indexa != indexb:
-                    new_boxb = intersect(boxa, boxb, subtract=True)
-                    boxes[indexb] = new_boxb
-
-        for text, box in zip(texts, boxes):
-            x_mid = (box.x0 + box.x1)/2
-            text.set_position((x_mid, box.y1)) 
-    
-        ymin = ax.get_ylim()[0]
-        plt.ylim([min([ymin, min(i.y0 for i in boxes)]), ax.get_ylim()[1]])
-
 
 def plot_SJ_curves(ax, coordinates, y, numbering=False, fig=None):
-    '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
+    '''
+    Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves
+    using draw_backsplice()
+    '''
 
-    texts, boxes = [], []
     for start, stop, counts in coordinates:
         if counts != 0:
             step = 1.0 /(counts)
             for num in arange(0.0, 0.1, 0.1 * step):
                 draw_canonical_splice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=1)
-
-            if numbering:
-                p0, p1, p2, p3 = draw_canonical_splice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=1, plot=False)
-                x_mid, y_mid = calc_bez_max(p0, p1, p2, p3)
-                text = plt.annotate(str(counts), (x_mid, y_mid), ha='center', va='bottom', alpha=.2, fontsize=8, xytext=(x_mid, y_mid+.1), arrowprops={'arrowstyle':'-','alpha':.05, 'lw':1})
-                texts.append(text)
-                plt.draw()
-                r = fig.canvas.get_renderer()
-    
-    if numbering:
-        for text in texts:
-            extent = text.get_window_extent(r).transformed(ax.transData.inverted())
-            box = Box(extent.xmin, extent.xmax, extent.ymin, extent.ymax)
-            boxes.append(box)
-
-        for indexa, boxa in enumerate(boxes):
-            for indexb, boxb in enumerate(boxes):
-                if indexa != indexb:
-                    new_boxb = intersect(boxa, boxb, subtract=False)
-                    boxes[indexb] = new_boxb
-
-        for text, box in zip(texts, boxes):
-            x_mid = (box.x0 + box.x1)/2
-            text.set_position((x_mid, box.y0))
-
-        ymax = ax.get_ylim()[1]
-        plt.ylim([ax.get_ylim()[0], max([ymax, max(i.y1 for i in boxes)])])
 
 
 def scale_introns(coords, scaling_factor):
@@ -455,8 +317,9 @@ def scale_coords(oldranges, newranges, coords):
 
 
 def to_rgb(color):
-    '''Converts hex or color name to rgb. Coverage is set up to be represented by 'alpha' of rgba'''
-    
+    '''Converts hex or color name to rgb. Coverage is set up to be 
+    represented by 'alpha' of rgba'''
+
     colordict = {
         'red': '#FF0000',
         'blue': '#0000FF',
@@ -468,6 +331,11 @@ def to_rgb(color):
         'orange': '#FF8000',
         'brown': '#663300'
     }
+
+    if ',' in color:     
+        color = list(map(int, color.split(',')))
+        if len(color) == 3:
+            return tuple([c / 255 for c in color])  # Matplotlib requires rgb values to be between 0 and 1 (rather than 0-255)
 
     if type(color) != str:
         print("Invalid color input: %s\n Color is set to red" % color)
@@ -554,6 +422,7 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None,
 
     return junctions
 
+
 def alu_file_parse(bed_path, chromosome, upstream, downstream):
 
     junctions = []
@@ -597,9 +466,9 @@ def plot_bp(ax, positions, y, color, transcript_length):
 
 
 def exons(path, gene, transcript=False):
-    '''Given a gene or transcript, returns exon coordinates from gtf file -> (chromosome, 5prime coord, 3prime coord, strand) for each exon
-        If transcript is False, searches gtf file for gene name , determines the longest daughter transcript, returns exon coordinates. 
-        Otherwise, directly returns transcript specific exon coordinates. '''
+    '''Given a gene or transcript, returns exon coordinates from gtf file -> (chromosome, 5prime coord, 3prime coord, strand)
+     for each exon. If transcript is False, searches gtf file for gene name, determines the longest
+     daughter transcript, and returns exon coordinates. Otherwise, directly returns transcript specific exon coordinates. '''
 
     cds_dict = defaultdict(list)
     transcript_dict = defaultdict(list)
