@@ -1,7 +1,7 @@
 # SpliceV #
 Visualize coverage, canonical, and backsplice junctions.
 
-![Example plot](https://github.com/flemingtonlab/spliceV/blob/master/etc/example.png)
+![Example plot](https://github.com/flemingtonlab/SpliceV/blob/master/etc/example.png)
 
 ## Requirements ##
 SpliceV works with Python 2.7 and 3.0+.
@@ -19,7 +19,7 @@ pip install SpliceV
 Or:
 
 ```
-git clone https://github.com/flemingtonlab/spliceV.git
+git clone https://github.com/flemingtonlab/SpliceV.git
 ```
 
 ## Example ##
