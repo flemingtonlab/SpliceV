@@ -30,7 +30,7 @@ git clone https://github.com/flemingtonlab/SpliceV.git
 
 cd SpliceV/example 
 
-python ../bin/SpliceV --gtf uba2.gtf -g UBA2 -f 5 
+python ../bin/SpliceV -b example.bam -gtf uba2.gtf -g UBA2 -f 5
 
 ```
 
