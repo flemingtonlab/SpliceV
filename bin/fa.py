@@ -28,7 +28,7 @@ regex_d = {
 # gene = 'RPMS1'
 # bp = 'HNRNPA1'
 rnabp = {}
-with open('RNABP.tsv') as infile:
+with open('../etc/RNABP.tsv') as infile:
     for line in infile:
         protein, seq = line.strip().split('\t')
         rnabp[protein] = seq

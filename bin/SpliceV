@@ -711,7 +711,7 @@ def prep_bam(path):
     return sam
 
 
-def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
+def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above',height_factor=.6):
 
     y_middle = (y_top + y_bottom) / 2
     
@@ -719,7 +719,7 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above'):
         y_range = y_top - y_middle
     else:
         y_range = y_bottom - y_middle
-    y_range *= 1
+    y_range *= height_factor
     # for i,j in zip(x_vals, y_vals):
     #     print("%i: %i"%(i,j))
     if np.max(y_vals) > 0:
@@ -811,7 +811,6 @@ def circles(bam, chromosome, upstream, downstream, min_overhang, min_junctions, 
     stranded = (read for read in fetched if strand_filter(read, strand, rev) and read.cigartuples)
 
     for read in stranded:
-        
         if read.has_tag('SA') and not read.is_supplementary:
             supp_chromosome, supp_start, supp_strand, supp_cigar, *_  = read.get_tag('SA').split(',')
             
@@ -965,7 +964,6 @@ def main():
     # Plot for each sample
     num_plots = len(args.bam)
     fig = plt.figure(figsize=(15, 4 * num_plots), dpi = 300)
-    
     for i in range(len(samples)):
         name, canonical, circle, _, x_fill, y_fill, colors = samples[i]
 
@@ -1032,8 +1030,8 @@ def main():
         # Plot.
         draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)     
         plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
-        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop) #- height*0.2)
-        plot_circles(ax=ax, coordinates=circle, gene_size=gene_length,y=ybottom)# + height *0.2)
+        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
+        plot_circles(ax=ax, coordinates=circle, gene_size=gene_length,y=ybottom)
 
 
         # Replace special characters with spaces and plot sample name above each subplot.

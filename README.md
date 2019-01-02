@@ -1,19 +1,19 @@
-# spliceV #
+# SpliceV #
 Visualize coverage, canonical, and backsplice junctions.
 
 ![Example plot](https://github.com/flemingtonlab/spliceV/blob/master/example/example.png)
 
-
 ## Requirements ##
-spliceV works with Python 2.7 and 3.0+.
+SpliceV works with Python 2.7 and 3.0+.
 ## Dependencies ##
 * Matplotlib
 * Numpy
+* pysam
 ## Installation ##
-To install spliceV:
+To install SpliceV:
 
 ```
-pip install spliceV
+pip install SpliceV
 ```
 
 Or:
@@ -26,15 +26,11 @@ git clone https://github.com/flemingtonlab/spliceV.git
 To run the example dataset:
 
 ```
-git clone https://github.com/flemingtonlab/spliceV.git 
+git clone https://github.com/flemingtonlab/SpliceV.git 
 
-cd spliceV/example 
+cd SpliceV/example 
 
-wget ftp://ftp.ensembl.org/pub/release-92/gtf/homo_sapiens/Homo_sapiens.GRCh38.92.gtf.gz .
-
-gunzip Homo_sapiens.GRCh38.92.gtf.gz 
-
-python ../bin/spliceV.py --gtf Homo_sapiens.GRCh38.92.gtf 
+python ../bin/SpliceV --gtf uba2.gtf -g UBA2 -f 5 
 
 ```
 
