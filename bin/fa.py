@@ -1,6 +1,8 @@
 import re
 import os
 import glob
+import pkg_resources
+
 
 
 # Convert ambiguous nucleotides to regex expressions
@@ -23,15 +25,15 @@ regex_d = {
     'U': 'T'
 }
 
-# gtf_path = 'ebv_only.gtf'
-# fasta_path = '/Volumes/Flemington_Lab_Reference_Files/1_genomes/1_2_human_plus_EBV/1_hg38_plus_EBV/1_hg38_plus_Akata_inverted/hg38_plus_Akata_inverted.fa'
-# gene = 'RPMS1'
-# bp = 'HNRNPA1'
+
 rnabp = {}
-with open('../etc/RNABP.tsv') as infile:
-    for line in infile:
-        protein, seq = line.strip().split('\t')
-        rnabp[protein] = seq
+#with open('../etc/RNABP.tsv') as infile:
+
+rnabp_handle = pkg_resources.resource_string(__name__, "etc/RNABP.tsv")
+
+for line in rnabp_handle.decode().split('\n'):
+    protein, seq = line.decode().split('\t')
+    rnabp[protein] = seq
 
 
 def bp_positions(query, seq, start):
