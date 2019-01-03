@@ -1,0 +1,27 @@
+#!python
+
+import sys
+
+''' Convert the STAR splice junction output files ("*STARSJ.out.tab") to a format compatible with circleVis'''
+
+path = sys.argv[1]
+
+with open(path, 'r') as fh, open(path + '.canonical.bed', 'w') as outfile:
+    for line in fh:
+        try:
+            line = line.split('\t')
+        except:
+            continue
+        chromosome, start, stop, strand = line[:4]
+        unique_counts = line[6]
+        if strand == '1':
+            strand = '+'
+        elif strand == '2':
+            strand = '-'
+        else:
+            print('Skipped %s. No strand information.' % '\t'.join(line))
+            continue
+        
+        lineout = '\t'.join([chromosome, start, stop, strand, unique_counts])
+        outfile.write("%s\n" % lineout)
+
