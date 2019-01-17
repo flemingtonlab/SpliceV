@@ -16,16 +16,7 @@ from matplotlib.path import Path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from fa import *
-import pkgutil
-rnabp={}
-try:
-    rnabp_file = pkgutil.get_data('SpliceV', 'bin/RNABP.tsv')
 
-    for line in rnabp_file.decode().split('\n'):
-        protein, seq = line.decode().split('\t')
-        rnabp[protein] = seq
-except:
-    pass
 
 def parse():
    
@@ -994,23 +985,27 @@ def main():
 
             ax.plot(plot_coords_left, [-0.5]*len(plot_coords_left), 'k<',ms=5)
             ax.plot(plot_coords_right, [-.5] *len(plot_coords_right), 'k>', ms=5)
-
+        
+        sequence = ''
         if args.rnabp:
-            if not args.fa:
-                continue
-            fasta_path = args.fa
-            
-            sequence = read_fasta(fasta_path, chromosome, transcript_start, transcript_stop, strand)
+            try:
+                fasta_path = args.fa
+                sequence = read_fasta(fasta_path, chromosome, transcript_start, transcript_stop, strand)
+
+            except:
+                print("RNA binding protein(s), %s, supplied. Genome FASTA file is also required (-fa)" % ' '.join(args.rnabp))
+
             
             y_bp_adjust = 0.49
             cmap = plt.get_cmap('Set1').colors
             color_ind = 4
             
-            for bp in args.rnabp:
-                bp_position_list = bp_positions(bp, sequence, transcript_start)
+            if sequence:
+                for bp in args.rnabp:
+                    bp_position_list = bp_positions(bp, sequence, transcript_start)
             
-                if args.intron_scale:
-                    bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]    
+                    if args.intron_scale:
+                        bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]    
                 plot_bp(ax, bp_position_list, y_bp_adjust * (ybottom + ytop), cmap[color_ind], transcript_len)
                 y_bp_adjust -= .01
                 color_ind = (color_ind + 1) % 9
