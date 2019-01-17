@@ -28,8 +28,9 @@ regex_d = {
 rnabp = {}
 #with open('../etc/RNABP.tsv') as infile:
 
-rnabp_file = pkgutil.get_data('SpliceV', 'bin/RNABP.tsv')
 try:
+    rnabp_file = pkgutil.get_data('SpliceV', 'bin/RNABP.tsv')
+
     for line in rnabp_file.decode().split('\n'):
         protein, seq = line.decode().split('\t')
         rnabp[protein] = seq
