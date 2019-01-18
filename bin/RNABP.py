@@ -198,7 +198,7 @@ YBX2	AACAWCD
 ZC3H10	SSAGCGM
 ZC3H14	UUUDUUU
 ZCRB1	GRHUUAA
-ZNF638	BGUUSKU'''.split('\n')
-
+ZNF638	BGUUSKU
+POLYA	AAUAAA'''.split('\n')
     return {i.split('\t')[0]: i.split('\t')[1] for i in bp}
 
