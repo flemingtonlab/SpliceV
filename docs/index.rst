@@ -5,10 +5,29 @@
 
 SpliceV
 ===================================
-
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   modules
+
+Installation
+____________
+
+Install via pip:
+
+``pip install SpliceV``
+
+Download source code:
+
+``git clone https://github.com/flemingtonlab/SpliceV``
+
+Dependencies
+____________
+
+* pysam
+* matplotlib
+* numpy
 
 Tutorial
 _________
@@ -19,7 +38,9 @@ The minimal requirements for running SpliceV are:
 
 2) GTF file
    
-For example, to plot the gene OAS2:
+The program will sort and/or index BAM files if this wasn't done.
+
+The simplest way to plot, using the gene OAS2:
 
 ``$ SpliceV -b sample1.bam -gtf gencode.v29.basic.annotation.gtf -g OAS2``
 
