@@ -10,7 +10,7 @@ SpliceV
    :maxdepth: 2
    :caption: Contents:
 
-Tutorial:
+Tutorial
 _________
 
 The minimal requirements for running SpliceV are:
@@ -43,9 +43,32 @@ Change the *color* using the ``-c`` flag (can specify hex "#2a9c3c" or RGB or si
 
 .. image:: /_static/example4.jpg
 
-To plot back-splice junctions, if the aligner used outputs chimeric alignments using the 'SA' tag (such as STAR using the --chimericJunction
+To *plot back-splice junctions*, if the aligner used outputs chimeric alignments using the 'SA' tag (such as STAR v2.5+ using the --chimSegmentMin and --chimOutType WithinBAM), only the bam file is required. Otherwise, use the ``-bsj`` flag to point to a file containing junction coordinates and counts (formats described below).
 
 ``$ SpliceV -b polya.bam rnaseA.bam -gtf gencode.v29.basic.annotation.gtf -g CEP128 -f 5``
+
+.. image:: /_static/example5.jpg
+
+*Normalize exon-level expression between samples* with the ``-n`` flag
+
+``$ SpliceV -b sample1_polya.bam sample1_rnaseA.bam -gtf gencode.v29.basic.annotation.gtf -g CEP128 -f 5 -n``
+
+.. image:: /_static/example6.jpg
+
+Input file formats
+__________________
+
+Splice junction (``-sj``) and back-splice junction (``-bsj``) calls should be *tab-separated* input files with each line representing the coordinates of one junction in this order: chromosome, smaller coordinate, larger coordinate, strand, counts. Files should contain no header line.
+
+For example: 
+
+.. code-block::  none
+
+        chr1    123     1234    +       55
+        chr2    342     53545   -       4
+        chr2    1000    1200    -       909
+
+
 
 Indices and tables
 ==================
