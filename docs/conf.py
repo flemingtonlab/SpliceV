@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # SpliceV documentation build configuration file, created by
-# sphinx-quickstart on Tue Jan 22 12:18:48 2019.
+# sphinx-quickstart on Tue Jan 22 14:19:16 2019.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -17,9 +17,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../bin'))
 
 
 # -- General configuration ------------------------------------------------
@@ -31,16 +31,9 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-from recommonmark.parser import CommonMarkParser
-
-source_parsers = {
-            '.md': CommonMarkParser,
-            }
-
-source_suffix = ['.rst', '.md']
 extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.coverage',
-    'sphinx.ext.imgmath',
+    'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages']
 
 # Add any paths that contain templates here, relative to this directory.
@@ -138,7 +131,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'SpliceV.tex', 'SpliceV Documentation',
-     'Nathan Ungerleider and Erik', 'manual'),
+     'Nathan Ungerleider and Erik Flemington', 'manual'),
 ]
 
 
