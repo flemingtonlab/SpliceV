@@ -37,7 +37,6 @@ cd SpliceV/example
 
 ![User example plot](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1.png)
 
-![User example plot] (https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1.png)
 
 ## Authors ##
 Created by Nathan Ungerleider and Erik Flemington
