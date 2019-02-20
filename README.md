@@ -34,7 +34,7 @@ cd SpliceV/example
 
 ../bin/SpliceV.py -b *bam -gtf *gtf -sj *canon* -bsj *circ* -g VTA1 -f 3
 ```
-![User example plot](https://github.com/flemingtonlab/SpliceV/etc/vta.png)
+![User example plot](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta.png)
 
 
 ## Authors ##
