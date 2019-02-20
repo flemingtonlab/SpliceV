@@ -32,9 +32,10 @@ git clone https://github.com/flemingtonlab/SpliceV.git
 
 cd SpliceV/example 
 
-python ../bin/SpliceV -b example.bam -gtf uba2.gtf -g UBA2 -f 5
-
+../bin/SpliceV.py -b *bam -gtf *gtf -sj *canon* -bsj *circ* -g VTA1 -f 3
 ```
+![User example plot](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta.png)
+
 
 ## Authors ##
 Created by Nathan Ungerleider and Erik Flemington

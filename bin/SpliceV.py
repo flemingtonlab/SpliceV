@@ -10,6 +10,7 @@ from collections import defaultdict, namedtuple, Counter
 import webbrowser
 import re
 import pysam
+from itertools import cycle
 
 matplotlib.use('Agg')
 from matplotlib.path import Path
@@ -37,6 +38,7 @@ def parse():
     parser.add_argument("-en", "--exon_numbering", action='store_true', help='Label exons')
     parser.add_argument("-gtf", required=True, help="Path to gtf file")
     parser.add_argument('-rnabp', nargs='*', help="List of RNABPs to plot.")
+    parser.add_argument('-rnabpc', nargs='*', help="Colors to use for RNABPs")
     parser.add_argument("-fa", help="Path to fasta file")
     parser.add_argument('-format', help="Output image format ('SVG', 'PDF', 'PNG', 'JPG', 'TIFF')", default='PNG')
     parser.add_argument("-alu", help="Path to Alu bed file")
@@ -198,12 +200,12 @@ def draw_exons(ax, exon_coords, cds_coords, y, height, colors):
 
         p = Path(vertices, codes)
         c = colors.pop(0)
-        patch = patches.PathPatch(p, facecolor = c, lw=.1, ec='k')
+        patch = patches.PathPatch(p, facecolor = c, lw=.3, ec='k')
 
         ax.add_patch(patch)
 
 
-def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=True):
+def draw_backsplice(ax, start, stop, y, y2, adjust, bezier_offset, gene_size, plot=True):
     ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
         "bezier_offset" controls the depth of the circle junctions on the plot.'''
 
@@ -215,8 +217,8 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=T
     Point = namedtuple('Point', ['x', 'y'])
     p0 = Point(start, y)
     p1 = Point(start - size_adjust, y - (bezier_offset * space) -  adjust)
-    p2 = Point(stop + size_adjust, y - (bezier_offset * space) - adjust)
-    p3 = Point(stop, y)
+    p2 = Point(stop + size_adjust, y2 - (bezier_offset * space) - adjust)
+    p3 = Point(stop, y2)
 
     if not plot:
         return p0,p1,p2,p3
@@ -240,7 +242,7 @@ def draw_backsplice(ax, start, stop, y, adjust, bezier_offset, gene_size, plot=T
     ax.add_patch(patch)
 
 
-def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
+def draw_canonical_splice(ax, start, stop, y, y2, adjust, bezier_offset, plot=True):
     ''' Takes a start and a stop coordinate and generates a bezier curve underneath exons (for circle junctions).
         "bezier_offset" controls the depth of the circle junctions on the plot. '''
 
@@ -252,8 +254,8 @@ def draw_canonical_splice(ax, start, stop, y, adjust, bezier_offset, plot=True):
     Point = namedtuple('Point', ['x', 'y'])
     p0 = Point(start, y)
     p1 = Point(start + .2 * (stop-start), y  + (length*bezier_offset) + adjust)
-    p2 = Point(stop - .2 * (stop-start), y  + (length*bezier_offset) + adjust)
-    p3 = Point(stop, y)
+    p2 = Point(stop - .2 * (stop-start), y2 + (length*bezier_offset) + adjust)
+    p3 = Point(stop, y2)
     if not plot:
         return p0,p1,p2,p3
 
@@ -309,19 +311,30 @@ def plot_exons(ax, coordinates, y, height, strand, colors, numbering=False):
             index += 1
 
 
-def plot_circles(ax, coordinates, y, gene_size, numbering=False, fig=None):
+def plot_circles(ax, coordinates, y, cds_range, gene_size, numbering=False, fig=None):
     '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
-    
+    y1 = float(y)
     texts, boxes = [], []
     for start, stop, counts in coordinates:
         if counts != 0:
+            
+            if start > stop:
+                stop, start = start, stop
+
+            if cds_range[0] <= stop <= cds_range[1]:
+                y2 = y - 0.2*0.5
+            
+            if cds_range[0] <= start <= cds_range[1]:
+                y1 = y - 0.2*0.5
+
+
             step = 1.0 /counts
             factor = .25
             for num in arange(0.0, factor, factor * step):
-                draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size)
+                draw_backsplice(ax=ax, start=start, stop=stop, y=y1,y2=y2, adjust=num, bezier_offset=.1, gene_size=gene_size)
 
             if numbering:
-                p0, p1, p2, p3 = draw_backsplice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=.1, gene_size=gene_size, plot=False)
+                p0, p1, p2, p3 = draw_backsplice(ax=ax, start=start, stop=stop, y=y1,y2=y2, adjust=num, bezier_offset=.1, gene_size=gene_size, plot=False)
                 x_mid, y_mid = calc_bez_max(p0, p1, p2, p3)
                 text = plt.annotate(str(counts), (x_mid, y_mid), ha='center', va='top', alpha=.2, fontsize=8, xytext=(x_mid, y_mid-.3), arrowprops={'arrowstyle':'-','alpha':.05, 'lw':1})
                 texts.append(text)
@@ -348,18 +361,30 @@ def plot_circles(ax, coordinates, y, gene_size, numbering=False, fig=None):
         plt.ylim([min([ymin, min(i.y0 for i in boxes)]), ax.get_ylim()[1]])
 
 
-def plot_SJ_curves(ax, coordinates, y, numbering=False, fig=None):
+def plot_SJ_curves(ax, coordinates, y, cds_range, numbering=False, fig=None):
     '''Takes list of coordinate tuples (start, stop, counts) and plots backsplice curves using draw_backsplice()'''
-
+    y1 = float(y)
     texts, boxes = [], []
     for start, stop, counts in coordinates:
         if counts != 0:
             step = 1.0 /(counts)
+            if start > stop:
+                stop, start = start, stop
+
+            if cds_range[0] <= stop <= cds_range[1]:
+                y2 = y + 0.2*0.5
+            else:
+                y2 = float(y)
+            if cds_range[0] <= start <= cds_range[1]:
+                y1 = y + 0.2*0.5
+            else: 
+                y1 = float(y)
+
             for num in arange(0.0, 0.1, 0.1 * step):
-                draw_canonical_splice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=1)
+                draw_canonical_splice(ax=ax, start=start, stop=stop, y=y1,y2=y2, adjust=num, bezier_offset=1)
 
             if numbering:
-                p0, p1, p2, p3 = draw_canonical_splice(ax=ax, start=start, stop=stop, y=y, adjust=num, bezier_offset=1, plot=False)
+                p0, p1, p2, p3 = draw_canonical_splice(ax=ax, start=start, stop=stop, y=y1, y2=y2,adjust=num, bezier_offset=1, plot=False)
                 x_mid, y_mid = calc_bez_max(p0, p1, p2, p3)
                 text = plt.annotate(str(counts), (x_mid, y_mid), ha='center', va='bottom', alpha=.2, fontsize=8, xytext=(x_mid, y_mid+.1), arrowprops={'arrowstyle':'-','alpha':.05, 'lw':1})
                 texts.append(text)
@@ -490,49 +515,6 @@ def to_rgb(color):
     return rgb
 
 
-def add_ax(num_plots, n, coordinates, strand, numbering, samples, sample_ind):
-    '''Add new plot'''
-
-    name, canonical,  circle,_, colors = samples[sample_ind]
-
-    # Center the plot on the canvas
-    ax = plt.subplot(num_plots, 1, n)
-    ybottom = height = 0.5
-    ytop = ybottom + height
-
-    # Calculated again here in case user requests intron scaling.
-    transcript_start = min([int(i[0]) for i in coordinates]) 
-    transcript_stop = max([int(i[1]) for i in coordinates])  
-    gene_length = transcript_stop - transcript_start
-    
-    # Add room on left and right of plot.
-    x_adjustment = 0.05 * gene_length
-
-    # Add room on top and bottom of plot. Include enough space here, otherwise curves will exceed the ax limits.
-    y_adjustment = 4 * (ytop * height)
-
-    xmin = transcript_start - x_adjustment
-    xmax = transcript_stop + x_adjustment
-    ymin = ybottom - y_adjustment
-    ymax = ytop + y_adjustment
-    ax.set_xlim([xmin, xmax])
-    ax.set_ylim([ymin, ymax])
-
-    # Turn off axis labeling.
-    ax.axes.get_yaxis().set_visible(False)
-    ax.axes.get_xaxis().set_visible(False)
-    
-    # Plot.
-    
-    plot_exons(ax=ax, coordinates=coordinates, colors=colors, height=height, y=ybottom, strand=strand, numbering=args.exon_numbering)
-    plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
-    plot_circles(ax=ax, coordinates=circle, y=ybottom, gene_size=gene_length)
-
-    # Replace special characters with spaces and plot sample name above each subplot.
-    name = re.sub(r'[-_|]',' ', name)
-    ax.set_title(name)
-
-
 def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None, min_junctions=0):
 
     junctions = []
@@ -550,7 +532,10 @@ def junction_file_parse(bed_path, chromosome, upstream, downstream, strand=None,
                     start, stop = stop, start
                 if not (upstream <= start <= downstream and upstream <= stop <= downstream):
                     continue
-                if strand and strand == bed_strand:
+                if strand:
+                    if strand == bed_strand:
+                        junctions.append((start, stop, counts))
+                else:
                     junctions.append((start, stop, counts))
 
     return junctions
@@ -630,7 +615,7 @@ def exons(path, gene, transcript=False):
                 elif exon.feature.lower() == 'cds': 
                     transcript = attributes.split('transcript_id ')[1].split('"')[1]
                     cds_dict[transcript].append(((int(exon.start), int(exon.stop))))
-                    
+    
     if len(transcript_dict) == 0:
         sys.exit("Gene {} not found in gtf file.".format(gene))
     
@@ -676,7 +661,7 @@ def exons(path, gene, transcript=False):
 
 def prep_bam(path):
 
-    sam = pysam.AlignmentFile(path)
+    sam = pysam.AlignmentFile(path, ignore_truncation=True)
     try:
         sam.check_index()
     except ValueError:
@@ -858,7 +843,14 @@ def main():
         factor = args.intron_scale
         scaled_coords = scale_introns(exon_coordinates, factor)
         cds_coordinates = scale_coords(exon_coordinates, scaled_coords, cds_coordinates)
-
+    
+    if cds_coordinates:
+        cds_range = [min(i[0] for i in cds_coordinates), max(i[1] for i in cds_coordinates)]                
+    
+    else:
+        cds_range = [0,0]
+    cds_range.sort()
+    
     if args.stranded:
         junction_strand = strand
         if args.stranded == 'reverse':
@@ -880,7 +872,7 @@ def main():
         bam = prep_bam(bampath)
         
         if args.sj:
-            canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand,min_junctions=min_junctions)
+            canonical = junction_file_parse(args.sj.pop(0), chromosome, transcript_start, transcript_stop, junction_strand, min_junctions=min_junctions)
         else:
             canonical = junctions(bam, chromosome, transcript_start, transcript_stop, min_junctions=min_junctions, strand=new_strand, rev=rev)
         
@@ -932,9 +924,9 @@ def main():
         coverage = samples[index][3]
 
         if args.normalize:
-            max_coverage = highest * 2
+            max_coverage = highest * 1.1
         else:
-            max_coverage = max(coverage) * 2
+            max_coverage = max(coverage) * 1.1
         if max_coverage != 0:
             color = [args.color + (i / max_coverage, ) for i in coverage]
         else:
@@ -958,7 +950,7 @@ def main():
             max_coverage = max(coverage)
         if max_coverage != 0:
             coverage = [i / max_coverage for i in coverage]
-        
+
         samples[index][5] = coverage
 
 
@@ -997,8 +989,15 @@ def main():
 
             
             y_bp_adjust = 0.49
-            cmap = plt.get_cmap('Set1').colors
-            color_ind = 4
+            if args.rnabpc:
+                rnabpc = cycle(args.rnabpc)
+                cmap = [next(rnabpc) for i in range(len(args.rnabp))]
+                color_ind = 0
+                print(args.rnabpc)
+                print(cmap)
+            else:
+                cmap = plt.get_cmap('Set1').colors
+                color_ind = 4
             
             if sequence:
                 for bp in args.rnabp:
@@ -1006,9 +1005,10 @@ def main():
             
                     if args.intron_scale:
                         bp_position_list = [transform(exon_coordinates, scaled_coords, i) for i in bp_position_list]    
-                plot_bp(ax, bp_position_list, y_bp_adjust * (ybottom + ytop), cmap[color_ind], transcript_len)
-                y_bp_adjust -= .01
-                color_ind = (color_ind + 1) % 9
+                    plot_bp(ax, bp_position_list, y_bp_adjust * (ybottom + ytop), cmap[color_ind], transcript_len)
+                    y_bp_adjust -= .01
+                    print(y_bp_adjust)
+                    color_ind = (color_ind + 1) % 9
 
         # Calculated again here in case user requests intron scaling.
         transcript_start = min([int(i[0]) for i in exon_coordinates]) 
@@ -1035,8 +1035,8 @@ def main():
         # Plot.
         draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)     
         plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
-        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop)
-        plot_circles(ax=ax, coordinates=circle, gene_size=gene_length,y=ybottom)
+        plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - .2 *height, cds_range=cds_range) 
+        plot_circles(ax=ax, coordinates=circle, gene_size=gene_length,y=ybottom + .2 *height, cds_range=cds_range )
 
 
         # Replace special characters with spaces and plot sample name above each subplot.
@@ -1048,7 +1048,7 @@ def main():
         title = args.gene
     else:
         title = args.transcript
-    outformat = args.format
+    outformat = args.format.lower()
     plt.tight_layout()
     plt.savefig("{title}.{extension}".format(title=title, extension=outformat))
     html_str = '''
