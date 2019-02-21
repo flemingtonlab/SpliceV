@@ -1,8 +1,7 @@
 import re
 import os
 import glob
-import pkgutil
-
+from RNABP import get_rnabp
 
 # Convert ambiguous nucleotides to regex expressions
 regex_d = {
@@ -25,22 +24,13 @@ regex_d = {
 }
 
 
-rnabp = {}
-#with open('../etc/RNABP.tsv') as infile:
-
-rnabp_file = pkgutil.get_data('SpliceV', 'bin/RNABP.tsv')
-try:
-    for line in rnabp_file.decode().split('\n'):
-        protein, seq = line.decode().split('\t')
-        rnabp[protein] = seq
-except:
-    pass
+rnabp = get_rnabp()
 
 def bp_positions(query, seq, start):
 
     positions = []
     if query not in rnabp:
-        print("%s not found" %query)
+        print("RNA binding protein %s not found in list." %query)
         return []
     searchstring = ''.join([regex_d[i] for i in rnabp[query]])
     for i in re.finditer(searchstring, seq):
@@ -48,12 +38,6 @@ def bp_positions(query, seq, start):
         positions.append(mid)
     positions = [i + start for i in positions]
     return positions
-
-
-    
-    # with open('%s_%s.bed' %(gene,bp),'w') as bed:
-#     for pos in positions:
-
 
 
 def index_fasta(path):

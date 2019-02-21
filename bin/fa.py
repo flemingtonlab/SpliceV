@@ -1,7 +1,6 @@
 import re
 import os
 import glob
-import pkgutil
 from RNABP import get_rnabp
 
 # Convert ambiguous nucleotides to regex expressions

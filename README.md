@@ -32,7 +32,7 @@ git clone https://github.com/flemingtonlab/SpliceV.git
 
 cd SpliceV/example 
 
-python ../bin/SpliceV.py -b example.vta1.bam -gtf vta1.gtf -sj example.canonical.bed -bsj example.circles.bed -g VTA1 -f 3
+python ../bin/SpliceV -b example.vta1.bam -gtf vta1.gtf -sj example.canonical.bed -bsj example.circles.bed -g VTA1 -f 3
 
 ```
 
@@ -45,7 +45,7 @@ This plot reveals a prominant circle from exon 2 through exon 4 (evidenced by th
 
 ![User example plot explained](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1_explained.png)
 
-The circularized isoform (exons 2-4) is isolated below:
+The major circularized isoform (exons 2-4; another less prevalent circle appears to include exon 5) is isolated below:
 
 
 ![User example circle](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1_circ.png)

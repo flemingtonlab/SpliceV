@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='SpliceV',
-    version='0.1.6.8',
+    version='0.1.6.9',
     author='Nathan Ungerleider',
     author_email='nungerle@tulane.edu',
     description='Visualize splice junctions, backsplice junctions (circleRNA) and coverage from RNA-Seq datasets',
@@ -15,7 +15,7 @@ setuptools.setup(
                 ),
     install_requires = ['matplotlib', 'numpy', 'pysam'],
     python_requires='>=2.7,>=3',
-    scripts=['bin/SpliceV', 'bin/fa.py','bin/find_circ_convert', 'bin/star_sj_convert'],
+    scripts=['bin/SpliceV','bin/RNABP.py', 'bin/fa.py','bin/find_circ_convert', 'bin/star_sj_convert'],
     include_package_data = True,
 )
 
