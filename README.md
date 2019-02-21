@@ -32,7 +32,7 @@ git clone https://github.com/flemingtonlab/SpliceV.git
 
 cd SpliceV/example 
 
-python ../bin/SpliceV -b example.vta1.bam -gtf vta1.gtf -sj example.canonical.bed -bsj example.circles.bed -g VTA1 -f 3
+python ../bin/SpliceV -b example.vta1.bam -gtf vta1.gtf -sj example.canonical.bed -bsj example.circles.bed -g VTA1 -f 3 -is 3
 
 ```
 
