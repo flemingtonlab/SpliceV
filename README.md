@@ -46,6 +46,8 @@ This plot reveals a prominant circle from exon 2 through exon 4 (evidenced by th
 ![User example plot explained](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1_explained.png)
 
 The circularized isoform (exons 2-4) is isolated below:
+
+
 ![User example circle](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1_circ.png)
 
 ## Authors ##
