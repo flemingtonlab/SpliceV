@@ -32,13 +32,22 @@ git clone https://github.com/flemingtonlab/SpliceV.git
 
 cd SpliceV/example 
 
-../bin/SpliceV.py -b *bam -gtf *gtf -sj *canon* -bsj *circ* -g VTA1 -f 3
+python ../bin/SpliceV.py -b example.vta1.bam -gtf vta1.gtf -sj example.canonical.bed -bsj example.circles.bed -g VTA1 -f 3
+
 ```
-This will generate the following plot:
+
+The sample data comes from Akata cells (a B Cell Lymphoma line) that were treated with the exonuclease RNase R prior to sequencing. RNase R exclusively digests RNA with a free end, helping enrich circularized RNA abundance in the sample. 
+
+These example commands will generate the following plot:
 ![User example plot](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1.png)
 
-The sample data comes from Akata cells (a B Cell Lymphoma line) that were treated with the exonuclease RNase R prior to sequencing. RNase R exclusively digests RNA with a free end, in effect sparing circularized RNA and enriching its relative abundance in the sample. This example plot reveals a prominant circle from exon 2 through exon 4 (evidenced by the back-splice junction reads which are plotted as curves below the axis. This is also demonstrated by the higher level of coverage in exon 2-4, shown by the relative intensity of color).
+This plot reveals a prominant circle from exon 2 through exon 4 (evidenced by the back-splice junction reads which are plotted as curves below the axis. This is also demonstrated by the higher level of coverage in exon 2-4, shown by the relative intensity of color).
 
+![User example plot explained](https://github.com/flemingtonlab/SpliceV/blob/master/etc/vta1_explained.png)
+
+The circularized isoform (exons 2-4) is isolated below:
+![User example circle](https://github.com/flemingtonlab/SpliceV/blob/master/e
+tc/vta1_circle.png)
 
 ## Authors ##
 Created by Nathan Ungerleider and Erik Flemington
