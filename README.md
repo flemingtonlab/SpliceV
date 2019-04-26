@@ -5,6 +5,10 @@ Visualize coverage, canonical, and backsplice junctions.
 
 ## Documentation ##
 See https://splicev.readthedocs.io/en/master/
+
+## Example Pipeline ##
+See https://github.com/flemingtonlab/SpliceV/blob/master/docs/example.pdf
+
 ## Requirements ##
 SpliceV works with Python 2.7 and 3.0+.
 ## Dependencies ##
