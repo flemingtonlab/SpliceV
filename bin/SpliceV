@@ -802,7 +802,7 @@ def circles(bam, chromosome, upstream, downstream, min_overhang, min_junctions, 
 
     for read in stranded:
         if read.has_tag('SA') and not read.is_supplementary:
-            supp_chromosome, supp_start, supp_strand, supp_cigar, *_  = read.get_tag('SA').split(',')
+            supp_chromosome, supp_start, supp_strand, supp_cigar  = read.get_tag('SA').split(',')[:4]
             
             # Interested only in circles, not fusions
             if supp_chromosome != read.reference_name:
