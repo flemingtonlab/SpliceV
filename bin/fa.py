@@ -107,7 +107,7 @@ def prep_fasta(paths):
                 print("No fasta index, %s, found. Generating fasta index..." % fasta_index_path)
 
                 temp_seq_map = index_fasta(path)
-                seq_map = {**seq_map, **temp_seq_map}
+                seq_map.update(temp_seq_map)
     return seq_map
 
 def rcomp(seq, reverse=True):
