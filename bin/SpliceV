@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+from __future__ import print_function
 import sys
 import os
 import matplotlib
@@ -10,6 +12,7 @@ import webbrowser
 import re
 import pysam
 from itertools import cycle
+
 
 matplotlib.use('Agg')
 from matplotlib.path import Path
