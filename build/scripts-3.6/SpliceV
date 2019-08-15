@@ -1,4 +1,6 @@
 #!python
+
+from __future__ import print_function
 import sys
 import os
 import matplotlib
@@ -10,6 +12,7 @@ import webbrowser
 import re
 import pysam
 from itertools import cycle
+
 
 matplotlib.use('Agg')
 from matplotlib.path import Path
@@ -605,8 +608,10 @@ def exons(path, gene, transcript=False):
 
             # Only lines with gene name (ignore case)
             if prog.search(line):
-                *line, attributes = line.split('\t')
-                exon = Exon(*line)
+                line = line.split('\t')
+                attributes = line[-1]
+                chromosome, source, feature, start, stop, score, strand, frame = line[:-1]
+                exon = Exon(chromosome, source, feature, start, stop, score, strand, frame)
                 if exon.feature.lower() == 'exon':                
                     transcript = attributes.split('transcript_id ')[1].split('"')[1]
                     transcript_dict[transcript].append((exon.chromosome, int(exon.start), int(exon.stop), exon.strand))
@@ -797,7 +802,7 @@ def circles(bam, chromosome, upstream, downstream, min_overhang, min_junctions, 
 
     for read in stranded:
         if read.has_tag('SA') and not read.is_supplementary:
-            supp_chromosome, supp_start, supp_strand, supp_cigar, *_  = read.get_tag('SA').split(',')
+            supp_chromosome, supp_start, supp_strand, supp_cigar  = read.get_tag('SA').split(',')[:4]
             
             # Interested only in circles, not fusions
             if supp_chromosome != read.reference_name:

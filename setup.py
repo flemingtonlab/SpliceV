@@ -2,10 +2,11 @@ import setuptools
 
 setuptools.setup(
     name='SpliceV',
-    version='0.1.6.9',
+    version='0.1.6.10b',
     author='Nathan Ungerleider',
     author_email='nungerle@tulane.edu',
     description='Visualize splice junctions, backsplice junctions (circleRNA) and coverage from RNA-Seq datasets',
+    long_description_content_type="text/markdown",
     url='https://github.com/flemingtonlab/SpliceV',
     packages=setuptools.find_packages(),
     long_description=open('README.md').read(),
