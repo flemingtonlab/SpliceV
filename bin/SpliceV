@@ -605,8 +605,10 @@ def exons(path, gene, transcript=False):
 
             # Only lines with gene name (ignore case)
             if prog.search(line):
-                *line, attributes = line.split('\t')
-                exon = Exon(*line)
+                line = line.split('\t')
+                attributes = line[-1]
+                chromosome, source, feature, start, stop, score, strand, frame = line[:-1]
+                exon = Exon(chromosome, source, feature, start, stop, score, strand, frame)
                 if exon.feature.lower() == 'exon':                
                     transcript = attributes.split('transcript_id ')[1].split('"')[1]
                     transcript_dict[transcript].append((exon.chromosome, int(exon.start), int(exon.stop), exon.strand))
