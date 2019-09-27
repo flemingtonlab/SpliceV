@@ -326,6 +326,9 @@ def plot_circles(ax, coordinates, y, cds_range, gene_size, numbering=False, fig=
             if cds_range[0] <= stop <= cds_range[1]:
                 y2 = y - 0.2*0.5
             
+            else:
+                y2 = float(y)
+            
             if cds_range[0] <= start <= cds_range[1]:
                 y1 = y - 0.2*0.5
 
