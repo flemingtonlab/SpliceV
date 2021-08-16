@@ -38,6 +38,7 @@ def parse():
     parser.add_argument("-rbs", "--reduce_backsplice", type=float, help='Factor by which to reduce backsplice curves')
     parser.add_argument("-ro", "--repress_open", action='store_true', help='Do not open plot in browser (only save it)')
     parser.add_argument("-en", "--exon_numbering", action='store_true', help='Label exons')
+    parser.add_argument("-th", "--track_height", type=float, default=0.6, help='Height of coverage track. Default is 0.6')
     parser.add_argument("-gtf", required=True, help="Path to gtf file")
     parser.add_argument('-rnabp', nargs='*', help="List of RNABPs to plot.")
     parser.add_argument('-rnabpc', nargs='*', help="Colors to use for RNABPs")
@@ -1041,7 +1042,7 @@ def main():
 
         # Plot.
         draw_exons(ax=ax, exon_coords=exon_coordinates, cds_coords=cds_coordinates, y=ybottom, height=height, colors=colors)     
-        plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop)
+        plot_coverage_curve(ax=ax, x_vals=x_fill, y_vals=y_fill, y_bottom=ybottom, y_top=ytop, height_factor=args.track_height)
         plot_SJ_curves(ax=ax, coordinates=canonical, y=ytop - .2 *height, cds_range=cds_range) 
         plot_circles(ax=ax, coordinates=circle, gene_size=gene_length,y=ybottom + .2 *height, cds_range=cds_range )
 
