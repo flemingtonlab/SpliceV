@@ -717,7 +717,7 @@ def plot_coverage_curve(ax, x_vals, y_vals, y_bottom, y_top, direction='above',h
     # for i,j in zip(x_vals, y_vals):
     #     print("%i: %i"%(i,j))
     if np.max(y_vals) > 0:
-        y_vals = y_middle + ((np.array(y_vals)/np.max(y_vals)) * y_range)
+        y_vals = y_middle + (np.array(y_vals) * y_range)
         plt.plot(x_vals, y_vals, color='k', linewidth=.2)
         ax.fill_between(x_vals, y_middle, y_vals, color='0.75', interpolate=False, linewidth=.2, edgecolor='k' )
     ax.axhline(lw=.2, color='k', y=y_middle) 
@@ -892,7 +892,7 @@ def main():
         coverage=[]
         
         x_fill, y_fill = get_coverage(bam, chromosome, transcript_start, transcript_stop, strand=new_strand, rev=rev, average=False)
-        
+
         for start, stop in exon_coordinates:
             coverage.append(get_coverage(bam, chromosome, start, stop, strand=new_strand, rev=rev, average=True))
             
@@ -954,13 +954,14 @@ def main():
         coverage = samples[index][5]
         if args.normalize:
             max_coverage = highest
+            
         else:
             max_coverage = max(coverage)
         if max_coverage != 0:
             coverage = [i / max_coverage for i in coverage]
-
+        
         samples[index][5] = coverage
-
+  
 
     # Plot for each sample
     num_plots = len(args.bam)
